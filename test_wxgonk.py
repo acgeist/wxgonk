@@ -27,7 +27,7 @@ class makeUrlBadInput(unittest.TestCase):
         '''makeUrl should fail if dataType is not a string'''
     def test_invalid_data_type(self):
         '''makeUrl should fail with an invalid data type'''
-        self.assertRaises(wxgonk.InvalidDataType, wxgonk.makeUrl, 'obs', ['KSEA'])
+        self.assertRaises(wxgonk.InvalidFunctionInput, wxgonk.makeUrl, 'obs', ['KSEA'])
 
 if __name__ == '__main__':
     unittest.main()

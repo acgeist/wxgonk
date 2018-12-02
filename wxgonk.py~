@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
 # wxgonk.py
 
-# TODO:
-# -turn all print statements into a debug string, then generate html
-#  using yattag.  Html debugging page should include links to metars,
-#  tafs, fields, and a google map, and should have a whole report of
-#  all testing that has been done.  In the end this should be used
-#  to present the data (i.e. build the display table).
-
 import coord_man
 
 import random
