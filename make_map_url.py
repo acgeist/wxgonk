@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# map_points.py
+
+#TODO: change color of markers/paths based on wx at each field
 
 from typing import Dict
 from typing import List

@@ -16,6 +16,7 @@ import make_map_url
 
 import random
 import re 
+import requests
 import sys
 import urllib.request
 import webbrowser
@@ -334,6 +335,9 @@ field_root = getRoot(field_url)
 roots = [taf_root, metar_root, field_root]
 
 map_url = make_map_url.make_map_url(make_coord_list())
+map_request = requests.get(map_url)
+with open('/var/www/html/images/map.jpg', 'wb') as map_img:
+    map_img.write(map_request.content)
 
 # TODO: use with open("/var...") as url_file:
 url_file = open("/var/www/html/urls.html", "w")
@@ -343,7 +347,7 @@ file_contents_string += '</title>\n</head>\n<body>\n<h1>Most recent URLs:</h1>'
 file_contents_string += '\n<a href=' + metar_url + '>METARs</a>\n'
 file_contents_string += '\n<a href=' + taf_url + '>TAFs</a>\n'
 file_contents_string += '\n<a href=' + field_url + '>FIELDs</a>\n'
-file_contents_string += '\n<a href=' + map_url + '>Google Map</a>\n'
+file_contents_string += '\n<a href=images/map.jpg>Google Map</a>\n'
 file_contents_string += '</body>\n</html>'
 url_file.write(file_contents_string)
 url_file.close()
