@@ -10,6 +10,11 @@
 #  purposes, can also turn this into an AFI 11-202v3 tutorial.
 # -Include an option for using USAF rules vice FAA rules.  Under FAA rules,
 #  we can just classify everything as VFR, MVFR, IFR, LIFR.
+# -keep a running list of countries with bad weather to make subsequent
+#  searches (on the same day) faster. Specifically, once we've queried
+#  a country and there aren't even any fields found, we shouldn't search
+#  that country again.  However, it should still remain available in the 
+#  list of countries.
 
 import coord_man
 import make_map_url
@@ -197,12 +202,13 @@ def make_coord_list():
             'lon': field.find('longitude').text})
     return field_list
         
-def genBadFieldList() -> List[str]:
+def genBadFieldList(country:str = '00') -> List[str]:
     if len(COUNTRY_DICT) == 0:
         load_country_dict()
     is_valid_choice = False
     while not is_valid_choice:
-        country_choice = ''.join(random.sample(COUNTRY_DICT.keys(),1))
+        country_choice = ''.join(random.sample(COUNTRY_DICT.keys(),1)) if \
+                country == '00' else country
         print('Looking for bad weather in ' + country_choice + ' (' 
                 + country_name_from_code(country_choice) + '), ', end = ' ')
         bad_field_url = makeUrl('country', [], country_choice)
@@ -294,6 +300,10 @@ def test():
         print('req_alt: ' + str(req_alt(metar_root)))
 
 
+    # Spoiler alert, can do all this with:
+    # import datetime
+    # example_string = '2018-12-04T08:00:00Z'
+    # date_obj = datetime.datetime.strptime(example_string, '%Y-%m-%dT%H:%M:%SZ')
     timeRegex = re.compile(r'''       # Strings are of form YYYY-MM-DDTHH:MM:SSZ
         ^                   # start of string
         (?P<yr>20\d{2})-    # grab 4-digit year (as long as it is in the range
@@ -304,23 +314,38 @@ def test():
         (?P<min>\d{2}):     # grab 2-digit minute and put in named group "min"
         \d{2}Z$             # no need to put seconds in a group
         ''', re.VERBOSE|re.IGNORECASE)
+    print("Grabbing a random time from one of the METARs...", end=' ')
     test_time = metar_root.findall('.//METAR/observation_time')[0].text
-    result = re.search(timeRegex, test_time).group()
-    print('Result: ', result)
+    print("test_time = " + test_time)
+    result = re.search(timeRegex, test_time)
+    print('result = re.search(timeRegex, test_time) yields: ', result)
+    print('result.group() yields: ', result.group())
+    print("result.group('yr') = " + result.group('yr'))
+    print("result.group('mon') = " + result.group('mon'))
+    print("result.group('day') = " + result.group('day'))
+    print("result.group('hr') = " + result.group('hr'))
+    print("result.group('min') = " + result.group('min'))
 
 if len(sys.argv) > 1:
-    for arg in sys.argv[1:]:
-        # Reference https://aviation.stackexchange.com/a/14593 and FAA Order 
-        # JO 7350.9. We're only going 
-        # to use/deal with 4-letter fields, as two-letter, two-number ids likely
-        # reference private fields or fields smaller than we'll be using for 
-        # military flying.
-        if re.match(r'\b[a-zA-Z]{4}\b', arg) == None:
-            print('The command line argument "' + arg + '" did not match '
-                    + 'the pattern for a valid ICAO identifier.')
-            break
-        else:
-            TEST_FIELDS.append(arg.upper())
+    # If there's only one argument and it is a valid two-letter country 
+    # identifier, search that country for bad weather.
+    if re.match(r'\b[a-zA-Z]{2}\b', sys.argv[1]) and \
+            len(sys.argv) == 2 and \
+            is_valid_country(sys.argv[1]):
+        TEST_FIELDS = genBadFieldList(sys.argv[1])
+    else:
+        for arg in sys.argv[1:]:
+            # Reference https://aviation.stackexchange.com/a/14593 and FAA Order 
+            # JO 7350.9. We're only going 
+            # to use/deal with 4-letter fields, as two-letter, two-number ids likely
+            # reference private fields or fields smaller than we'll be using for 
+            # military flying.
+            if re.match(r'\b[a-zA-Z]{4}\b', arg) == None:
+                print('The command line argument "' + arg + '" did not match '
+                        + 'the pattern for a valid ICAO identifier.')
+                break
+            else:
+                TEST_FIELDS.append(arg.upper())
 else:
     TEST_FIELDS = genBadFieldList()
 DEST_ID = TEST_FIELDS[0]
@@ -333,27 +358,24 @@ taf_root = getRoot(taf_url)
 metar_root = getRoot(metar_url)
 field_root = getRoot(field_url)
 roots = [taf_root, metar_root, field_root]
+urls = [taf_url, metar_url, field_url]
 
 map_url = make_map_url.make_map_url(make_coord_list())
 map_request = requests.get(map_url)
 with open('/var/www/html/images/map.jpg', 'wb') as map_img:
     map_img.write(map_request.content)
 
-# TODO: use with open("/var...") as url_file:
-url_file = open("/var/www/html/urls.html", "w")
 file_contents_string = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
 file_contents_string += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
 file_contents_string += '</title>\n</head>\n<body>\n<h1>Most recent URLs:</h1>'
-file_contents_string += '\n<a href=' + metar_url + '>METARs</a>\n'
-file_contents_string += '\n<a href=' + taf_url + '>TAFs</a>\n'
-file_contents_string += '\n<a href=' + field_url + '>FIELDs</a>\n'
-file_contents_string += '\n<a href=images/map.jpg>Google Map</a>\n'
+file_contents_string += '\n<a href=' + metar_url + '>METARs</a></br>'
+file_contents_string += '\n<a href=' + taf_url + '>TAFs</a></br>'
+file_contents_string += '\n<a href=' + field_url + '>FIELDs</a></br>'
+file_contents_string += '\n<a href=images/map.jpg>Google Map</a></br>'
 file_contents_string += '</body>\n</html>'
-url_file.write(file_contents_string)
-url_file.close()
-urls = [taf_url, metar_url, field_url]
+with open("/var/www/html/urls.html", "w") as url_file:
+    url_file.write(file_contents_string)
     
-
 # reference https://stackoverflow.com/a/419185
 if __name__ == '__main__':
     pass
