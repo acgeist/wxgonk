@@ -20,6 +20,8 @@ import coord_man
 import make_map_url
 import make_adds_url
 
+import datetime
+import logging
 import random
 import re 
 import requests
@@ -27,6 +29,7 @@ import sys
 import urllib.request
 import webbrowser
 from typing import List
+
 # reference http://www.diveintopython3.net/your-first-python-program.html
 try:
     from lxml import etree
@@ -34,12 +37,11 @@ except ImportError:
     import xml.etree.ElementTree as etree
 
 FILING_MINS = {'vis': 1.5, 'ceiling': 500}
-TEST_FIELDS = []
 ALT_REQ = {'vis': 3.0, 'ceiling': 2000}
 ALT_MINS = {'vis': 2.0, 'ceiling': 1000}
-NO_CEIL_VAL = 9999
+NO_CEIL_VAL = 99999
 COUNTRY_DICT = {}
-timeRegex = ''
+TEST_FIELDS = []
 
 def load_country_dict():
     with open('country_list.csv') as country_csv:
@@ -164,13 +166,13 @@ def make_coord_list():
             'lon': field.find('longitude').text})
     return field_list
         
-def genBadFieldList(country:str = '00') -> List[str]:
+def gen_bad_fields(country:str = '00') -> List[str]:
     if len(COUNTRY_DICT) == 0:
         load_country_dict()
     is_valid_choice = False
     while not is_valid_choice:
         country_choice = ''.join(random.sample(COUNTRY_DICT.keys(),1)) if \
-                country == '00' else country
+                country == '00' or not is_valid_country(country) else country
         print('Looking for bad weather in ' + country_choice + ' (' 
                 + country_name_from_code(country_choice) + '), ', end = ' ')
         bad_field_url = make_adds_url.make_adds_url('country', [], country_choice)
@@ -262,39 +264,25 @@ def test():
         print('req_alt: ' + str(req_alt(metar_root)))
 
 
-    # Spoiler alert, can do all this with:
-    # import datetime
-    # example_string = '2018-12-04T08:00:00Z'
-    # date_obj = datetime.datetime.strptime(example_string, '%Y-%m-%dT%H:%M:%SZ')
-    timeRegex = re.compile(r'''       # Strings are of form YYYY-MM-DDTHH:MM:SSZ
-        ^                   # start of string
-        (?P<yr>20\d{2})-    # grab 4-digit year (as long as it is in the range
-                            # 2000-2099) and put it in named group "yr"
-        (?P<mon>\d{2})-     # grab 2-digit month and put it in named group "mon"
-        (?P<day>\d{2})T     # grab 2-digit day/date and put in named group "day"
-        (?P<hr>\d{2}):      # grab 2-digit hour and put in named group "hr"
-        (?P<min>\d{2}):     # grab 2-digit minute and put in named group "min"
-        \d{2}Z$             # no need to put seconds in a group
-        ''', re.VERBOSE|re.IGNORECASE)
-    print("Grabbing a random time from one of the METARs...", end=' ')
-    test_time = metar_root.findall('.//METAR/observation_time')[0].text
-    print("test_time = " + test_time)
-    result = re.search(timeRegex, test_time)
-    print('result = re.search(timeRegex, test_time) yields: ', result)
-    print('result.group() yields: ', result.group())
-    print("result.group('yr') = " + result.group('yr'))
-    print("result.group('mon') = " + result.group('mon'))
-    print("result.group('day') = " + result.group('day'))
-    print("result.group('hr') = " + result.group('hr'))
-    print("result.group('min') = " + result.group('min'))
+    # Times follow format YYYY-mm-ddTHH:MM:SSZ
+    metar_times_list = metar_root.findall('.//METAR/observation_time')
+    example_time_string = random.choice(metar_times_list).text
+    print('example_time_string = ' + example_time_string)
+    date_obj = datetime.datetime.strptime(example_time_string, \
+            '%Y-%m-%dT%H:%M:%SZ')
+    print('date_obj = ' + str(date_obj))
+
+logging.basicConfig(level=logging.DEBUG, filename = 'test.log', filemode='w', \
+        format='\n%(asctime)s - %(levelname)s - %(message)s')
 
 if len(sys.argv) > 1:
+    logging.debug('sys.argv = ' + ' '.join(sys.argv) + '\n')
     # If there's only one argument and it is a valid two-letter country 
     # identifier, search that country for bad weather.
     if re.match(r'\b[a-zA-Z]{2}\b', sys.argv[1]) and \
             len(sys.argv) == 2 and \
             is_valid_country(sys.argv[1]):
-        TEST_FIELDS = genBadFieldList(sys.argv[1])
+        TEST_FIELDS = gen_bad_fields(sys.argv[1])
     else:
         for arg in sys.argv[1:]:
             # Reference https://aviation.stackexchange.com/a/14593 and FAA Order 
@@ -303,24 +291,28 @@ if len(sys.argv) > 1:
             # reference private fields or fields smaller than we'll be using for 
             # military flying.
             if re.match(r'\b[a-zA-Z]{4}\b', arg) == None:
-                print('The command line argument "' + arg + '" did not match '
-                        + 'the pattern for a valid ICAO identifier.')
+                logging.warning('The command line argument "' + arg + '" did not match '
+                        + 'the pattern for a valid ICAO identifier.\n')
                 break
             else:
                 TEST_FIELDS.append(arg.upper())
+    logging.debug('TEST_FIELDS set to ' + ', '.join(TEST_FIELDS) + '\n')
 else:
-    TEST_FIELDS = genBadFieldList()
+    logging.debug('No command-line arguments detected. Picking random fields.\n')
+    TEST_FIELDS = gen_bad_fields()
 DEST_ID = TEST_FIELDS[0]
+logging.debug('set DEST_ID to TEST_FIELDS[0], which is ' + TEST_FIELDS[0] + '.\n')
 
+logging.debug('making ADDS URLs...\n')
 taf_url = make_adds_url.make_adds_url('tafs', TEST_FIELDS)    
 metar_url = make_adds_url.make_adds_url('metars', TEST_FIELDS)    
 field_url = make_adds_url.make_adds_url('fields', TEST_FIELDS)    
+urls = [taf_url, metar_url, field_url]
 
 taf_root = getRoot(taf_url)
 metar_root = getRoot(metar_url)
 field_root = getRoot(field_url)
 roots = [taf_root, metar_root, field_root]
-urls = [taf_url, metar_url, field_url]
 
 map_url = make_map_url.make_map_url(make_coord_list())
 map_request = requests.get(map_url)
@@ -334,8 +326,11 @@ file_contents_string += '\n<a href=' + metar_url + '>METARs</a></br>'
 file_contents_string += '\n<a href=' + taf_url + '>TAFs</a></br>'
 file_contents_string += '\n<a href=' + field_url + '>FIELDs</a></br>'
 file_contents_string += '\n<a href=images/map.jpg>Google Map</a></br>'
+with open('test.log', newline='\n') as f:
+    for line in f:
+        file_contents_string += '<p>' + line + '</p>'
 file_contents_string += '</body>\n</html>'
-with open("/var/www/html/urls.html", "w") as url_file:
+with open('/var/www/html/urls.html', 'w') as url_file:
     url_file.write(file_contents_string)
     
 # reference https://stackoverflow.com/a/419185
