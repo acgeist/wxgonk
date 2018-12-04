@@ -12,6 +12,7 @@
 #  we can just classify everything as VFR, MVFR, IFR, LIFR.
 
 import coord_man
+import make_map_url
 
 import random
 import re 
@@ -182,6 +183,19 @@ def print_node(node, indent:int = 0):
         for child in node:
             print_node(child, indent + 1)
 
+def make_coord_list():
+    '''Make a list of all field locations. Used to generate map URL.'''
+    field_list = []
+    for field in field_root.findall('.//Station'):
+        field_list.append({
+            'station_id': field.find('station_id').text,
+            'name': field_root.findall('.//*.[station_id="'
+                + field.find('station_id').text
+                + '"]/site')[0].text,
+            'lat': field.find('latitude').text,
+            'lon': field.find('longitude').text})
+    return field_list
+        
 def genBadFieldList() -> List[str]:
     if len(COUNTRY_DICT) == 0:
         load_country_dict()
@@ -313,22 +327,28 @@ DEST_ID = TEST_FIELDS[0]
 taf_url = makeUrl('tafs', TEST_FIELDS)    
 metar_url = makeUrl('metars', TEST_FIELDS)    
 field_url = makeUrl('fields', TEST_FIELDS)    
+
+taf_root = getRoot(taf_url)
+metar_root = getRoot(metar_url)
+field_root = getRoot(field_url)
+roots = [taf_root, metar_root, field_root]
+
+map_url = make_map_url.make_map_url(make_coord_list())
+
+# TODO: use with open("/var...") as url_file:
 url_file = open("/var/www/html/urls.html", "w")
 file_contents_string = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
 file_contents_string += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
 file_contents_string += '</title>\n</head>\n<body>\n<h1>Most recent URLs:</h1>'
-file_contents_string += '\n<a href=' + metar_url + '>METARs</a>'
-file_contents_string += '\n<a href=' + taf_url + '>TAFs</a>'
+file_contents_string += '\n<a href=' + metar_url + '>METARs</a>\n'
+file_contents_string += '\n<a href=' + taf_url + '>TAFs</a>\n'
 file_contents_string += '\n<a href=' + field_url + '>FIELDs</a>\n'
+file_contents_string += '\n<a href=' + map_url + '>Google Map</a>\n'
 file_contents_string += '</body>\n</html>'
 url_file.write(file_contents_string)
 url_file.close()
 urls = [taf_url, metar_url, field_url]
     
-taf_root = getRoot(taf_url)
-metar_root = getRoot(metar_url)
-field_root = getRoot(field_url)
-roots = [taf_root, metar_root, field_root]
 
 # reference https://stackoverflow.com/a/419185
 if __name__ == '__main__':
