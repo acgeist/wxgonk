@@ -29,6 +29,12 @@ def make_map_url(points:List[Dict[str, float]], country:str = 'us')->str:
         map_url += '&markers=size:tiny%7Ccolor:red' # alternates markers
         for point in points[1:]:
             map_url += '%7C' + str(point['lat']) + ',' + str(point['lon'])
+        # Add a blue line with 50% opacity from home station/destination
+        # to each alternate
+        for point in points[1:]:
+            map_url += '&path=color:0x0000ff%7Cweight:5%7C'
+            map_url += str(points[0]['lat']) + ',' + str(points[0]['lon'])
+            map_url += '%7C' + str(point['lat']) + ',' + str(point['lon'])
     map_url += '&language=eng'
     map_url += '&region=' + country
     map_url += '&key='
