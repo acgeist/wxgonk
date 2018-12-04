@@ -18,6 +18,7 @@
 
 import coord_man
 import make_map_url
+import make_adds_url
 
 import random
 import re 
@@ -39,45 +40,6 @@ ALT_MINS = {'vis': 2.0, 'ceiling': 1000}
 NO_CEIL_VAL = 9999
 COUNTRY_DICT = {}
 timeRegex = ''
-
-def makeUrl(dataType:str, stationList:List[str], country:str = 'us') -> str:
-    '''Make the URL for each dataset'''
-    if not isinstance(dataType, str):
-        raise InvalidFunctionInput("Data type must be a string")
-    if not dataType.upper() in ['TAFS', 'TAF', 'METAR', 'METARS', 'FIELD', 'FIELDS',
-            'COUNTRY']:
-        raise InvalidFunctionInput("Data type must be 'TAFS', 'TAF', " 
-        + "'METAR', 'METARS', 'FIELD', 'FIELDS', or COUNTRY")
-    if not is_valid_country(country.upper()):
-        raise InvalidFunctionInput("Function makeUrl was passed " + country +
-                ", which was not recognized as a valid 2-letter identifier." +
-                " reference https://laendercode.net/en/2-letter-list.html.")
-    if not re.search('[a-z]{2}', country.lower()):
-        raise InvalidFunctionInput("country must be a 2-letter abbreviation " + 
-                "in accordance with ISO-3166-1 ALPHA-2.")
-    url = 'https://www.aviationweather.gov/adds/dataserver_current/httpparam?'
-    url += 'requestType=retrieve'
-    url += '&format=xml'
-    if dataType.upper() in ['TAFS', 'TAF']:
-        url += '&dataSource=tafs'
-        url += '&hoursBeforeNow=24'
-        url += '&mostRecentForEachStation=true'
-    elif dataType.upper() in ['METAR', 'METARS']:
-        url += '&dataSource=metars'
-        # Don't use METAR if unable to get one newer than 3 hours
-        url += '&hoursBeforeNow=3'
-        url += '&mostRecentForEachStation=true'
-    elif dataType.upper() in ['FIELDS', 'FIELD']:
-        url += '&dataSource=stations'
-    elif dataType.upper() in ['COUNTRY']:
-        url += '&dataSource=stations'
-        url += '&stationString=~' + country
-        return url
-    else:
-        return 'https://www.aviationweather.gov/adds/dataserver_current'
-    url += '&stationString='
-    url += '%20'.join(stationList)
-    return url
 
 def load_country_dict():
     with open('country_list.csv') as country_csv:
@@ -173,7 +135,7 @@ def print_raw_metar(field:str) -> None:
         print(metar_root.findall('.//*[station_id="' + field.upper()
             + '"]/raw_text')[0].text)
     else:
-        temp_url = makeUrl('METAR', field.split())
+        temp_url = make_adds_url.make_adds_url('METAR', field.split())
         temp_root = getRoot(temp_url)
         print(
                 temp_root.findall('.//raw_text')[0].text if 
@@ -211,7 +173,7 @@ def genBadFieldList(country:str = '00') -> List[str]:
                 country == '00' else country
         print('Looking for bad weather in ' + country_choice + ' (' 
                 + country_name_from_code(country_choice) + '), ', end = ' ')
-        bad_field_url = makeUrl('country', [], country_choice)
+        bad_field_url = make_adds_url.make_adds_url('country', [], country_choice)
         bad_field_root = getRoot(bad_field_url)
         bad_fields_list = [] 
         print(bad_field_root.find('data').attrib['num_results']
@@ -225,7 +187,7 @@ def genBadFieldList(country:str = '00') -> List[str]:
         # http requests start to break with >1000 fields
         for i in range(0, min(1000, len(bad_fields_list))):
             rand_field_list.append(random.choice(bad_fields_list))
-        bad_metar_url = makeUrl('METAR', rand_field_list)
+        bad_metar_url = make_adds_url.make_adds_url('METAR', rand_field_list)
         bad_metar_root = getRoot(bad_metar_url)
         bad_metars = bad_metar_root.findall('.//METAR')
         bad_metars = list(filter(lambda metar:
@@ -350,9 +312,9 @@ else:
     TEST_FIELDS = genBadFieldList()
 DEST_ID = TEST_FIELDS[0]
 
-taf_url = makeUrl('tafs', TEST_FIELDS)    
-metar_url = makeUrl('metars', TEST_FIELDS)    
-field_url = makeUrl('fields', TEST_FIELDS)    
+taf_url = make_adds_url.make_adds_url('tafs', TEST_FIELDS)    
+metar_url = make_adds_url.make_adds_url('metars', TEST_FIELDS)    
+field_url = make_adds_url.make_adds_url('fields', TEST_FIELDS)    
 
 taf_root = getRoot(taf_url)
 metar_root = getRoot(metar_url)

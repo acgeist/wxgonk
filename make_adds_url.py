@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import re
 from typing import List
 
 def make_adds_url(dataType:str, stationList:List[str], country:str = 'us') -> str:
@@ -10,10 +11,10 @@ def make_adds_url(dataType:str, stationList:List[str], country:str = 'us') -> st
             'COUNTRY']:
         raise InvalidFunctionInput("Data type must be 'TAFS', 'TAF', " 
         + "'METAR', 'METARS', 'FIELD', 'FIELDS', or COUNTRY")
-    if not is_valid_country(country.upper()):
-        raise InvalidFunctionInput("Function make_adds_url was passed " + country +
-                ", which was not recognized as a valid 2-letter identifier." +
-                " reference https://laendercode.net/en/2-letter-list.html.")
+#    if not is_valid_country(country.upper()):
+#        raise InvalidFunctionInput("Function make_adds_url was passed " + country +
+#                ", which was not recognized as a valid 2-letter identifier." +
+#                " reference https://laendercode.net/en/2-letter-list.html.")
     if not re.search('[a-z]{2}', country.lower()):
         raise InvalidFunctionInput("country must be a 2-letter abbreviation " + 
                 "in accordance with ISO-3166-1 ALPHA-2.")
