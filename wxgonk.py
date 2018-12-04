@@ -6,7 +6,10 @@
 #  using yattag.  Html debugging page should include links to metars,
 #  tafs, fields, and a google map, and should have a whole report of
 #  all testing that has been done.  In the end this should be used
-#  to present the data (i.e. build the display table).
+#  to present the data (i.e. build the display table). For troubleshooting
+#  purposes, can also turn this into an AFI 11-202v3 tutorial.
+# -Include an option for using USAF rules vice FAA rules.  Under FAA rules,
+#  we can just classify everything as VFR, MVFR, IFR, LIFR.
 
 import coord_man
 
@@ -27,6 +30,7 @@ TEST_FIELDS = []
 ALT_REQ = {'vis': 3.0, 'ceiling': 2000}
 ALT_MINS = {'vis': 2.0, 'ceiling': 1000}
 NO_CEIL_VAL = 9999
+COUNTRY_DICT = {}
 timeRegex = ''
 
 def makeUrl(dataType:str, stationList:List[str], country:str = 'us') -> str:
@@ -37,30 +41,13 @@ def makeUrl(dataType:str, stationList:List[str], country:str = 'us') -> str:
             'COUNTRY']:
         raise InvalidFunctionInput("Data type must be 'TAFS', 'TAF', " 
         + "'METAR', 'METARS', 'FIELD', 'FIELDS', or COUNTRY")
-    possible_country_codes =  ' af ax al dz as ad ao ai aq ag ar am aw au at az'
-    possible_country_codes += ' bs bh bd bb by be bz bj bm bt bo bq ba bw bv br'
-    possible_country_codes += ' io vg bn bg bf bi kh cm ca cv ky cf td cl cn cx'
-    possible_country_codes += ' cc co km ck cr hr cu cw cy cz cd dk dj dm do tl'
-    possible_country_codes += ' ec eg sv gq er ee et fk fo fj fi fr gf pf tf ga'
-    possible_country_codes += ' gm ge de gh gi gr gl gd gp gu gt gg gn gw gy ht'
-    possible_country_codes += ' hm hn hk hu is in id ir iq ie im il it ci jm jp'
-    possible_country_codes += ' je jo kz ke ki xk kw kg la lv lb ls lr ly li lt'
-    possible_country_codes += ' lu mo mk mg mw my mv ml mt mh mq mr mu yt mx fm'
-    possible_country_codes += ' md mc mn me ms ma mz mm na nr np nl an nc nz ni'
-    possible_country_codes += ' ne ng nu nf kp mp no om pk pw ps pa pg py pe ph'
-    possible_country_codes += ' pn pl pt pr qa cg re ro ru rw bl sh kn lc mf pm'
-    possible_country_codes += ' vc ws sm st sa sn rs cs sc sl sg sx sk si sb so'
-    possible_country_codes += ' za gs kr ss es lk sd sr sj sz se ch sy tw tj tz'
-    possible_country_codes += ' th tg tk to tt tn tr tm tc tv vi ug ua ae gb us'
-    possible_country_codes += ' um uy uz vu va ve vn wf eh ye zm zw'
-    if not country.lower() in possible_country_codes.split():
+    if not is_valid_country(country.upper()):
         raise InvalidFunctionInput("Function makeUrl was passed " + country +
                 ", which was not recognized as a valid 2-letter identifier." +
                 " reference https://laendercode.net/en/2-letter-list.html.")
-    if not re.search('[a-z]{2}', country):
+    if not re.search('[a-z]{2}', country.lower()):
         raise InvalidFunctionInput("country must be a 2-letter abbreviation " + 
-                "in accordance with ISO-3166-1 ALPHA-2. Reference " + 
-                "https://laendercode.net/en/2-letter-list.html")
+                "in accordance with ISO-3166-1 ALPHA-2.")
     url = 'https://www.aviationweather.gov/adds/dataserver_current/httpparam?'
     url += 'requestType=retrieve'
     url += '&format=xml'
@@ -84,6 +71,22 @@ def makeUrl(dataType:str, stationList:List[str], country:str = 'us') -> str:
     url += '&stationString='
     url += '%20'.join(stationList)
     return url
+
+def load_country_dict():
+    with open('country_list.csv') as country_csv:
+        for line in country_csv:
+            key, value = line.strip().split(',')
+            COUNTRY_DICT[key] = value
+
+def is_valid_country(country:str)->bool:
+    if len(COUNTRY_DICT) == 0:
+        load_country_dict()
+    return True if country.upper() in COUNTRY_DICT else False
+
+def country_name_from_code(code:str)->str:
+    if len(COUNTRY_DICT) == 0:
+        load_country_dict()
+    return COUNTRY_DICT[code.upper()]
 
 class InvalidFunctionInput(Exception):
     pass
@@ -146,7 +149,14 @@ def req_alt(node) -> bool:
     else:
         print('less than ', end='')
     print('ALT_REQ["ceiling"] (' + '{:.0f}'.format(ALT_REQ['ceiling']) + 'ft)')
-    return vis_at_dest >= ALT_REQ['ceiling'] and ceil_at_dest >= ALT_REQ['ceiling']
+    return vis_at_dest < ALT_REQ['vis'] or ceil_at_dest < ALT_REQ['ceiling']
+
+def valid_alt(node, field:str) -> bool:
+    '''Return whether or not a field is a valid alternate based on wx'''
+    vis_at_alt = float(node.findall('.//*[station_id="' + DEST_ID
+        + '"]/visibility_statute_mi')[0].text)
+    ceil_at_alt = get_ceiling(node)
+    return vis_at_alt < ALT_MINS['vis'] or ceil_at_alt < ALT_MINS['ceiling']
 
 def print_raw_metar(field:str) -> None:
     '''Print the raw metar for a given 4-letter identifier'''
@@ -173,17 +183,18 @@ def print_node(node, indent:int = 0):
             print_node(child, indent + 1)
 
 def genBadFieldList() -> List[str]:
-    country_string = 'ar br bg ca cl cn dk eg ee fr de in ie il it jp nl nz kp '
-    country_string += 'no ph ru sg za kr tr ua ae gb us ve vn'
-    country_list = country_string.split()
+    if len(COUNTRY_DICT) == 0:
+        load_country_dict()
     is_valid_choice = False
     while not is_valid_choice:
-        country_choice = random.choice(country_list)
-        print('country_choice is ' + country_choice + ' - num_results = ', end='')
+        country_choice = ''.join(random.sample(COUNTRY_DICT.keys(),1))
+        print('Looking for bad weather in ' + country_choice + ' (' 
+                + country_name_from_code(country_choice) + '), ', end = ' ')
         bad_field_url = makeUrl('country', [], country_choice)
         bad_field_root = getRoot(bad_field_url)
         bad_fields_list = [] 
-        print(bad_field_root.find('data').attrib['num_results'])
+        print(bad_field_root.find('data').attrib['num_results']
+                + ' fields found.')
         if bad_field_root.find('data').attrib['num_results'] == 0:
             country_list.remove(country_choice)
             continue
@@ -204,9 +215,12 @@ def genBadFieldList() -> List[str]:
         if len(bad_metars) > 2:
             is_valid_choice = True
         else:
-            print('No fields in ' + country_choice + ' currently have visibility',
-                '< ' + str(ALT_REQ['vis']) + '. Picking another country.')
-    print(str(len(bad_metars)) + ' fields have visibility < ' + 
+            print('No fields in ' + country_name_from_code(country_choice) 
+                    + ' currently have visibility', 
+                    '< ' + str(ALT_REQ['vis']) + '. Picking another country.')
+    print(str(len(bad_metars)) + ' fields in ' 
+            + country_name_from_code(country_choice) 
+            + ' currently have visibility < ' + 
             str(ALT_REQ['vis']))
     if len(bad_metars) > 10:
         del bad_metars[10:]
@@ -281,6 +295,11 @@ def test():
 
 if len(sys.argv) > 1:
     for arg in sys.argv[1:]:
+        # Reference https://aviation.stackexchange.com/a/14593 and FAA Order 
+        # JO 7350.9. We're only going 
+        # to use/deal with 4-letter fields, as two-letter, two-number ids likely
+        # reference private fields or fields smaller than we'll be using for 
+        # military flying.
         if re.match(r'\b[a-zA-Z]{4}\b', arg) == None:
             print('The command line argument "' + arg + '" did not match '
                     + 'the pattern for a valid ICAO identifier.')
