@@ -303,7 +303,7 @@ roots = [taf_root, metar_root, field_root]
 
 map_url = mapurlmaker.make_map_url(make_coord_list())
 map_request = requests.get(map_url)
-with open('images/map.jpg', 'wb') as map_img:
+with open('../images/map.jpg', 'wb') as map_img:
     map_img.write(map_request.content)
 
 file_contents_string = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'

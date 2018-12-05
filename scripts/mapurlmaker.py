@@ -40,6 +40,6 @@ def make_map_url(points:List[Dict[str, float]], country:str = 'us')->str:
     map_url += '&region=' + country
     map_url += '&key='
     # Store key separately so it's not hard-coded in.
-    with open('google_map_key.txt') as f:
+    with open('../google_map_key.txt') as f:
         map_url += f.readline().strip()
     return map_url

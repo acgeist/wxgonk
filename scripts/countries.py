@@ -6,7 +6,8 @@ Reference: https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
 
 from typing import Dict
 
-def make_country_dict(csv_file:str = 'country_list.csv') -> Dict[str, str]:
+def make_country_dict(
+        csv_file:str = '../data/country_list.csv') -> Dict[str, str]:
     """Make a dictionary containing the ISO 3166 two-letter code
     as the key and the country name as the value.  The data is read
     from a csv file.
