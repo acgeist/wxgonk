@@ -16,9 +16,10 @@
 #  that country again.  However, it should still remain available in the 
 #  list of countries.
 
-import coord_man
-import make_map_url
-import make_adds_url
+import countries
+import latlongcalcs
+import mapurlmaker
+import wxurlmaker
 
 import datetime
 import logging
@@ -40,24 +41,8 @@ FILING_MINS = {'vis': 1.5, 'ceiling': 500}
 ALT_REQ = {'vis': 3.0, 'ceiling': 2000}
 ALT_MINS = {'vis': 2.0, 'ceiling': 1000}
 NO_CEIL_VAL = 99999
-COUNTRY_DICT = {}
+COUNTRY_DICT = countries.make_country_dict()
 TEST_FIELDS = []
-
-def load_country_dict():
-    with open('country_list.csv') as country_csv:
-        for line in country_csv:
-            key, value = line.strip().split(',')
-            COUNTRY_DICT[key] = value
-
-def is_valid_country(country:str)->bool:
-    if len(COUNTRY_DICT) == 0:
-        load_country_dict()
-    return True if country.upper() in COUNTRY_DICT else False
-
-def country_name_from_code(code:str)->str:
-    if len(COUNTRY_DICT) == 0:
-        load_country_dict()
-    return COUNTRY_DICT[code.upper()]
 
 class InvalidFunctionInput(Exception):
     pass
@@ -137,7 +122,7 @@ def print_raw_metar(field:str) -> None:
         print(metar_root.findall('.//*[station_id="' + field.upper()
             + '"]/raw_text')[0].text)
     else:
-        temp_url = make_adds_url.make_adds_url('METAR', field.split())
+        temp_url = wxurlmaker.make_adds_url('METAR', field.split())
         temp_root = getRoot(temp_url)
         print(
                 temp_root.findall('.//raw_text')[0].text if 
@@ -167,15 +152,14 @@ def make_coord_list():
     return field_list
         
 def gen_bad_fields(country:str = '00') -> List[str]:
-    if len(COUNTRY_DICT) == 0:
-        load_country_dict()
     is_valid_choice = False
     while not is_valid_choice:
         country_choice = ''.join(random.sample(COUNTRY_DICT.keys(),1)) if \
-                country == '00' or not is_valid_country(country) else country
+                country == '00' or not countries.is_valid_country(country) else \
+                country
         print('Looking for bad weather in ' + country_choice + ' (' 
-                + country_name_from_code(country_choice) + '), ', end = ' ')
-        bad_field_url = make_adds_url.make_adds_url('country', [], country_choice)
+                + countries.country_name_from_code(country_choice) + '), ', end = ' ')
+        bad_field_url = wxurlmaker.make_adds_url('country', [], country_choice)
         bad_field_root = getRoot(bad_field_url)
         bad_fields_list = [] 
         print(bad_field_root.find('data').attrib['num_results']
@@ -189,7 +173,7 @@ def gen_bad_fields(country:str = '00') -> List[str]:
         # http requests start to break with >1000 fields
         for i in range(0, min(1000, len(bad_fields_list))):
             rand_field_list.append(random.choice(bad_fields_list))
-        bad_metar_url = make_adds_url.make_adds_url('METAR', rand_field_list)
+        bad_metar_url = wxurlmaker.make_adds_url('METAR', stationList = rand_field_list)
         bad_metar_root = getRoot(bad_metar_url)
         bad_metars = bad_metar_root.findall('.//METAR')
         bad_metars = list(filter(lambda metar:
@@ -200,11 +184,11 @@ def gen_bad_fields(country:str = '00') -> List[str]:
         if len(bad_metars) > 2:
             is_valid_choice = True
         else:
-            print('No fields in ' + country_name_from_code(country_choice) 
+            print('No fields in ' + countries.country_name_from_code(country_choice) 
                     + ' currently have visibility', 
                     '< ' + str(ALT_REQ['vis']) + '. Picking another country.')
     print(str(len(bad_metars)) + ' fields in ' 
-            + country_name_from_code(country_choice) 
+            + countries.country_name_from_code(country_choice) 
             + ' currently have visibility < ' + 
             str(ALT_REQ['vis']))
     if len(bad_metars) > 10:
@@ -238,7 +222,7 @@ def test():
                     + field_root.findall('.//*.[station_id="' 
                         + field.find('station_id').text
                         + '"]/site')[0].text + ') is ' 
-                    + str(round(coord_man.dist_between_coords(home_lat, home_lon,
+                    + str(round(latlongcalcs.dist_between_coords(home_lat, home_lon,
                         field.find('latitude').text, 
                         field.find('longitude').text)))
                     + ' statute miles from ' 
@@ -268,6 +252,7 @@ def test():
     metar_times_list = metar_root.findall('.//METAR/observation_time')
     example_time_string = random.choice(metar_times_list).text
     print('example_time_string = ' + example_time_string)
+    #TODO: do time zone stuff
     date_obj = datetime.datetime.strptime(example_time_string, \
             '%Y-%m-%dT%H:%M:%SZ')
     print('date_obj = ' + str(date_obj))
@@ -276,12 +261,14 @@ logging.basicConfig(level=logging.DEBUG, filename = 'test.log', filemode='w', \
         format='\n%(asctime)s - %(levelname)s - %(message)s')
 
 if len(sys.argv) > 1:
+    """Process command-line arguments"""
+    # TODO: put some kind of limitation on number of fields that can be searched.
     logging.debug('sys.argv = ' + ' '.join(sys.argv) + '\n')
     # If there's only one argument and it is a valid two-letter country 
     # identifier, search that country for bad weather.
     if re.match(r'\b[a-zA-Z]{2}\b', sys.argv[1]) and \
             len(sys.argv) == 2 and \
-            is_valid_country(sys.argv[1]):
+            countries.is_valid_country(sys.argv[1]):
         TEST_FIELDS = gen_bad_fields(sys.argv[1])
     else:
         for arg in sys.argv[1:]:
@@ -304,9 +291,9 @@ DEST_ID = TEST_FIELDS[0]
 logging.debug('set DEST_ID to TEST_FIELDS[0], which is ' + TEST_FIELDS[0] + '.\n')
 
 logging.debug('making ADDS URLs...\n')
-taf_url = make_adds_url.make_adds_url('tafs', TEST_FIELDS)    
-metar_url = make_adds_url.make_adds_url('metars', TEST_FIELDS)    
-field_url = make_adds_url.make_adds_url('fields', TEST_FIELDS)    
+taf_url = wxurlmaker.make_adds_url('tafs', TEST_FIELDS)    
+metar_url = wxurlmaker.make_adds_url('metars', TEST_FIELDS)    
+field_url = wxurlmaker.make_adds_url('fields', TEST_FIELDS)    
 urls = [taf_url, metar_url, field_url]
 
 taf_root = getRoot(taf_url)
@@ -314,9 +301,9 @@ metar_root = getRoot(metar_url)
 field_root = getRoot(field_url)
 roots = [taf_root, metar_root, field_root]
 
-map_url = make_map_url.make_map_url(make_coord_list())
+map_url = mapurlmaker.make_map_url(make_coord_list())
 map_request = requests.get(map_url)
-with open('/var/www/html/images/map.jpg', 'wb') as map_img:
+with open('images/map.jpg', 'wb') as map_img:
     map_img.write(map_request.content)
 
 file_contents_string = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
@@ -330,7 +317,7 @@ with open('test.log', newline='\n') as f:
     for line in f:
         file_contents_string += '<p>' + line + '</p>'
 file_contents_string += '</body>\n</html>'
-with open('/var/www/html/urls.html', 'w') as url_file:
+with open('index.html', 'w') as url_file:
     url_file.write(file_contents_string)
     
 # reference https://stackoverflow.com/a/419185
