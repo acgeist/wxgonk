@@ -1,3 +1,11 @@
+# Vim tmp files
+*.py~
+
+# Google maps key
+google_map_key.txt
+
+test.log
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
