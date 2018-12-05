@@ -11,7 +11,12 @@ import math
 
 def hav(angle:float) -> float:
     """Return the haversine of an angle (input in radians)"""
-    return math.sin(angle/2)**2
+    try:
+        float(angle)
+    except ValueError:
+        raise Exception("Input to hav must be numeric, received " + angle)
+    else:
+        return math.sin(angle/2)**2
 
 def dist_between_coords(lat1, long1, lat2, long2) -> float:
     """Use the Haversine formula to calculate distance between two points"""

@@ -257,8 +257,8 @@ def test():
             '%Y-%m-%dT%H:%M:%SZ')
     print('date_obj = ' + str(date_obj))
 
-logging.basicConfig(level=logging.DEBUG, filename = 'test.log', filemode='w', \
-        format='\n%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
+        filemode='w', format='\n%(asctime)s - %(levelname)s - %(message)s')
 
 if len(sys.argv) > 1:
     """Process command-line arguments"""
@@ -303,7 +303,7 @@ roots = [taf_root, metar_root, field_root]
 
 map_url = mapurlmaker.make_map_url(make_coord_list())
 map_request = requests.get(map_url)
-with open('../images/map.jpg', 'wb') as map_img:
+with open('images/map.jpg', 'wb') as map_img:
     map_img.write(map_request.content)
 
 file_contents_string = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
@@ -313,7 +313,7 @@ file_contents_string += '\n<a href=' + metar_url + '>METARs</a></br>'
 file_contents_string += '\n<a href=' + taf_url + '>TAFs</a></br>'
 file_contents_string += '\n<a href=' + field_url + '>FIELDs</a></br>'
 file_contents_string += '\n<a href=images/map.jpg>Google Map</a></br>'
-with open('test.log', newline='\n') as f:
+with open('.logs/test.log', newline='\n') as f:
     for line in f:
         file_contents_string += '<p>' + line + '</p>'
 file_contents_string += '</body>\n</html>'
