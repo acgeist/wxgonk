@@ -153,9 +153,10 @@ def make_coord_list():
         
 def gen_bad_fields(country:str = '00') -> List[str]:
     is_valid_choice = False
+    country_choices = list(COUNTRY_DICT.keys())
     while not is_valid_choice:
-        country_choice = ''.join(random.sample(COUNTRY_DICT.keys(),1)) if \
-                country == '00' or not countries.is_valid_country(country) else \
+        country_choice = random.choice(country_choices) if \
+                not countries.is_valid_country(country) else \
                 country
         print('Looking for bad weather in ' + country_choice + ' (' 
                 + countries.country_name_from_code(country_choice) + '), ', end = ' ')
@@ -165,7 +166,7 @@ def gen_bad_fields(country:str = '00') -> List[str]:
         print(bad_field_root.find('data').attrib['num_results']
                 + ' fields found.')
         if bad_field_root.find('data').attrib['num_results'] == 0:
-            country_list.remove(country_choice)
+            country_choices.remove(country_choice)
             continue
         for field in bad_field_root.findall('.//Station'):
             bad_fields_list.append(field.find('station_id').text)
@@ -187,6 +188,7 @@ def gen_bad_fields(country:str = '00') -> List[str]:
             print('No fields in ' + countries.country_name_from_code(country_choice) 
                     + ' currently have visibility', 
                     '< ' + str(ALT_REQ['vis']) + '. Picking another country.')
+            country_choices.remove(country_choice)
     print(str(len(bad_metars)) + ' fields in ' 
             + countries.country_name_from_code(country_choice) 
             + ' currently have visibility < ' + 
