@@ -1,5 +1,6 @@
 # Vim tmp files
 *.py~
+*~
 
 # Google maps key
 google_map_key.txt
