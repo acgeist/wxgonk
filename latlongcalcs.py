@@ -7,6 +7,7 @@ Still learning about docstrings, lookup
 https://www.python.org/dev/peps/pep-0257/
 """
 
+import logging
 import math
 
 def hav(angle:float) -> float:
@@ -37,6 +38,9 @@ def hdg_between_coords(lat1, long1, lat2, long2) -> float:
     # TODO: change the output so it spits out a cardinal/subcardinal
     # TODO: input validation
     """Return heading (true) from point 1 to point 2"""
+    logging.debug('hdg_between_coords(lat1 = ' + str(lat1)
+            + ', long1 = ' + str(long1) + ', lat2 = ' + str(lat2)
+            + ', long2 = ' + str(long2) + ') returns: ')
     lat1 = math.radians(float(lat1))
     long1 = math.radians(float(long1))
     lat2 = math.radians(float(lat2))
@@ -44,7 +48,9 @@ def hdg_between_coords(lat1, long1, lat2, long2) -> float:
     x = math.cos(lat2) * math.sin(abs(long1 - long2))
     y = math.cos(lat1) * math.sin(lat2) - \
             math.sin(lat1) * math.cos(lat2) * math.cos(abs(long1 - long2))
-    return math.degrees(math.atan2(x, y))
+    return_val = math.degrees(math.atan2(x, y)) % 360
+    logging.debug(str(return_val))
+    return return_val
 
 def card_from_hdg(hdg:float) -> str:
     hdg %= 360

@@ -4,12 +4,16 @@
 Text Data Server (TDS). Reference https://aviationweather.gov/dataserver/
 """
 
+import logging
 import re
 from typing import List
 
 def make_adds_url(
         dataType:str, stationList:List[str] = [], country:str = ' ') -> str:
     """Make the URL for each dataset"""
+    logging.debug('make_adds_url(datatype = ' + dataType
+            + ', stationList = ' + ' '.join(stationList) + ', country = '
+            + country + ') returns: ')
     valid_tafs_inputs = 'TAF TAFS FORECAST FORECASTS'.split()
     valid_metars_inputs = 'METAR METARS OBSERVATION OBSERVATIONS'.split()
     valid_stations_inputs = \
@@ -48,11 +52,16 @@ def make_adds_url(
     elif dataType.upper() in ['COUNTRY']:
         url += '&dataSource=stations'
         url += '&stationString=~' + country
+        logging.debug('<a href="' + url + '">' + url + '</a>')
         return url
     else:
+        logging.debug('<a href="https://www.aviationweather.gov/adds/' 
+                + 'dataserver_current">https://www.aviationweather.gov/'
+                + 'adds/dataserver_current</a>')
         return 'https://www.aviationweather.gov/adds/dataserver_current'
     url += '&stationString='
     url += '%20'.join(stationList)
+    logging.debug('<a href="' + url + '">' + url + '</a>')
     return url
 
 class InvalidFunctionInput(Exception):

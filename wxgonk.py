@@ -44,6 +44,11 @@ NO_CEIL_VAL = 99999
 COUNTRY_DICT = countries.make_country_dict()
 TEST_FIELDS = []
 
+#logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
+        #filemode='w', format='\n%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
+        filemode='w', format='\n%(message)s')
+
 class InvalidFunctionInput(Exception):
     pass
 class InvalidDataType(Exception):
@@ -56,14 +61,14 @@ def can_file_metar(metar_node, field:str) -> bool:
     '''Return filing legality based on current conditions'''
     vis_at_dest = float(metar_node.findall('.//*[station_id="' + DEST_ID 
         + '"]/visibility_statute_mi')[0].text)
-    print('In function "can_file_metar" the visibility at ' + DEST_ID + ' is ' 
-            + '{:.1f}'.format(vis_at_dest) + 'sm, which is ', end='')
+    logging.debug('In function "can_file_metar" the visibility at ' + DEST_ID + ' is ' 
+            + '{:.1f}'.format(vis_at_dest) + 'sm, which is ')
     if vis_at_dest >= FILING_MINS['vis']:
-        print('greater than or equal to ', end='')
+        logging.debug('greater than or equal to ')
     else:
-        print('less than ', end='')
+        logging.debug('less than ')
     # Reference: https://mkaz.blog/code/python-string-format-cookbook/
-    print('FILING_MINS["vis"] (' + '{:.1f}'.format(FILING_MINS['vis']) + 'sm)')
+    logging.debug('FILING_MINS["vis"] (' + '{:.1f}'.format(FILING_MINS['vis']) + 'sm)')
     return vis_at_dest > FILING_MINS['vis'] 
 
 def has_ceiling(node) -> bool:
@@ -90,21 +95,21 @@ def req_alt(node) -> bool:
     '''Return whether or not an alternate is required'''
     vis_at_dest = float(node.findall('.//*[station_id="' + DEST_ID 
         + '"]/visibility_statute_mi')[0].text)
-    print('In function "req_alt" the visibility at ' + DEST_ID + ' is ' 
-            + '{:.1f}'.format(vis_at_dest) + 'sm, which is ', end='')
+    logging.debug('In function "req_alt" the visibility at ' + DEST_ID + ' is ' 
+            + '{:.1f}'.format(vis_at_dest) + 'sm, which is ')
     if vis_at_dest >= ALT_REQ['vis'] :
-        print('greater than or equal to ', end='')
+        logging.debug('greater than or equal to ')
     else:
-        print('less than ', end='')
-    print('ALT_REQ["vis"] (' + '{:.1f}'.format(ALT_REQ['vis']) + 'sm)')
+        logging.debug('less than ')
+    logging.debug('ALT_REQ["vis"] (' + '{:.1f}'.format(ALT_REQ['vis']) + 'sm)')
     ceil_at_dest = get_ceiling(node)
-    print('In function "req_alt" the ceiling at ' + DEST_ID + ' is '
-            + '{:.0f}'.format(ceil_at_dest) + 'ft agl, which is ', end='')
+    logging.debug('In function "req_alt" the ceiling at ' + DEST_ID + ' is '
+            + '{:.0f}'.format(ceil_at_dest) + 'ft agl, which is ')
     if ceil_at_dest >= ALT_REQ['ceiling']:
-        print('greater than or equal to ', end='')
+        logging.debug('greater than or equal to ')
     else:
-        print('less than ', end='')
-    print('ALT_REQ["ceiling"] (' + '{:.0f}'.format(ALT_REQ['ceiling']) + 'ft)')
+        logging.debug('less than ')
+    logging.debug('ALT_REQ["ceiling"] (' + '{:.0f}'.format(ALT_REQ['ceiling']) + 'ft)')
     return vis_at_dest < ALT_REQ['vis'] or ceil_at_dest < ALT_REQ['ceiling']
 
 def valid_alt(node, field:str) -> bool:
@@ -114,20 +119,19 @@ def valid_alt(node, field:str) -> bool:
     ceil_at_alt = get_ceiling(node)
     return vis_at_alt < ALT_MINS['vis'] or ceil_at_alt < ALT_MINS['ceiling']
 
-def print_raw_metar(field:str) -> None:
+def get_raw_metar_str(field:str) -> str:
     '''Print the raw metar for a given 4-letter identifier'''
     if not isinstance(field, str) or re.match(r'\b[a-zA-Z]{4}\b', field) == None:
-        raise InvalidFunctionInput("Invalid input at print_raw_metar: " + field)
+        raise InvalidFunctionInput("Invalid input at get_raw_metar_str: " + field)
     if field in TEST_FIELDS:
-        print(metar_root.findall('.//*[station_id="' + field.upper()
-            + '"]/raw_text')[0].text)
+        return metar_root.findall('.//*[station_id="' + field.upper()
+            + '"]/raw_text')[0].text
     else:
         temp_url = wxurlmaker.make_adds_url('METAR', field.split())
         temp_root = getRoot(temp_url)
-        print(
-                temp_root.findall('.//raw_text')[0].text if 
-                int(temp_root.find('data').attrib['num_results']) > 0 else
-                'METAR for ' + field + ' not found.')
+        return temp_root.findall('.//raw_text')[0].text if \
+                int(temp_root.find('data').attrib['num_results']) > 0 else \
+                'METAR for ' + field + ' not found.'
 
 def print_node(node, indent:int = 0):
     '''Print an XML tree'''
@@ -167,12 +171,12 @@ def gen_bad_fields(country:str = '00') -> List[str]:
         country_choice = random.choice(country_choices) if \
                 not countries.is_valid_country(country) else \
                 country
-        print('Looking for bad weather in ' + country_choice + ' (' 
-                + countries.country_name_from_code(country_choice) + '), ', end = ' ')
+        logging.debug('Looking for bad weather in ' + country_choice + ' (' 
+                + countries.country_name_from_code(country_choice) + '), ')
         bad_field_url = wxurlmaker.make_adds_url('country', [], country_choice)
         bad_field_root = getRoot(bad_field_url)
         bad_fields_list = [] 
-        print(bad_field_root.find('data').attrib['num_results']
+        logging.debug(bad_field_root.find('data').attrib['num_results']
                 + ' fields found.')
         if bad_field_root.find('data').attrib['num_results'] == 0:
             country_choices.remove(country_choice)
@@ -194,11 +198,12 @@ def gen_bad_fields(country:str = '00') -> List[str]:
         if len(bad_metars) > 2:
             is_valid_choice = True
         else:
-            print('No fields in ' + countries.country_name_from_code(country_choice) 
+            logging.debug('No fields in ' 
+                    + countries.country_name_from_code(country_choice) 
                     + ' currently have visibility', 
                     '< ' + str(ALT_REQ['vis']) + '. Picking another country.')
             country_choices.remove(country_choice)
-    print(str(len(bad_metars)) + ' fields in ' 
+    logging.debug(str(len(bad_metars)) + ' fields in ' 
             + countries.country_name_from_code(country_choice) 
             + ' currently have visibility < ' + 
             str(ALT_REQ['vis']))
@@ -210,66 +215,68 @@ def gen_bad_fields(country:str = '00') -> List[str]:
     return bad_field_ids
 
 def test():
-    print('TEST_FIELDS = ' + ' '.join(TEST_FIELDS))
-    print('Home station/destination = ' + DEST_ID, end=' ')
+    logging.debug('Entering "test()" method')
     home_lat = float(field_root.findall('.//*.[station_id="' + DEST_ID 
             + '"]/latitude')[0].text) 
     home_lon = float(field_root.findall('.//*.[station_id="' + DEST_ID 
             + '"]/longitude')[0].text) 
-    print('('
+    logging.debug('Home station/destination = ' + DEST_ID + ' ('
         + field_root.findall('.//*.[station_id="' + DEST_ID 
             + '"]/site')[0].text + '), located at lat/long: ' 
         + str(home_lat) + ', '+ str(home_lon))
     for root in roots:
-        print('Received ' + root.find('data').attrib['num_results']
-                + ' ' +  root.find('data_source').attrib['name'] + ': ', 
-                end='')
+        logging.debug('Received ' + root.find('data').attrib['num_results']
+                + ' ' +  root.find('data_source').attrib['name'] + ': ')
         for id in root.findall('.//station_id'):
-            print(id.text, end=' ')
-        print()
+            logging.debug(id.text)
     for field in field_root.findall('.//Station'):
         if not field.find('station_id').text in DEST_ID:
-            print(field.find('station_id').text + '('
+            logging.debug(field.find('station_id').text + '('
                     + field_root.findall('.//*.[station_id="' 
                         + field.find('station_id').text
                         + '"]/site')[0].text + ') is ' 
-                    + str(round(latlongcalcs.dist_between_coords(home_lat, home_lon,
+                    + str(round(latlongcalcs.dist_between_coords(
+                        home_lat, home_lon,
                         field.find('latitude').text, 
                         field.find('longitude').text)))
                     + ' statute miles from ' 
-                    + DEST_ID)
+                    + DEST_ID + ' on a heading of '
+                    + "{:03d}".format(round(latlongcalcs.hdg_between_coords(
+                        home_lat, home_lon,
+                        field.find('latitude').text, 
+                        field.find('longitude').text)))
+                    + ' true.')
+                        
 
     # https://docs.python.org/2/library.xml.etree.elementtree.html#elementtree-xpath
     metars = metar_root.findall('.//METAR')
 
     for metar in metars:
-        print(metar.find('raw_text').text)
+        logging.debug(metar.find('raw_text').text)
 
-    print('Can I legally file to ' + DEST_ID + '?')
-    print_raw_metar(DEST_ID)
-    print('can_file_metar: ' + str(can_file_metar(metar_root, DEST_ID)))
-    print('has_ceiling: ' + str(has_ceiling(metar_root.findall('.//*[station_id="' 
+    logging.debug('Can I legally file to ' + DEST_ID + '?')
+    logging.debug(get_raw_metar_str(DEST_ID))
+    logging.debug('can_file_metar: ' + str(can_file_metar(metar_root, DEST_ID)))
+    logging.debug('has_ceiling: ' + str(has_ceiling(metar_root.findall('.//*[station_id="' 
         + DEST_ID + '"]/sky_condition'))))
-    print('ceiling: ' + str(get_ceiling(metar_root.findall('.//*[station_id="'
+    logging.debug('ceiling: ' + str(get_ceiling(metar_root.findall('.//*[station_id="'
         + DEST_ID + '"]/sky_condition'))))
-    print('visibility: ' + get_vis(metar_root.find('.//*[station_id="'
+    logging.debug('visibility: ' + get_vis(metar_root.find('.//*[station_id="'
         + DEST_ID + '"]')))
     if can_file_metar(metar_root, DEST_ID):
-        print('Do I require an alternate to file to ' + DEST_ID + '?')
-        print('req_alt: ' + str(req_alt(metar_root)))
+        logging.debug('Do I require an alternate to file to ' + DEST_ID + '?')
+        logging.debug('req_alt: ' + str(req_alt(metar_root)))
 
 
     # Times follow format YYYY-mm-ddTHH:MM:SSZ
     metar_times_list = metar_root.findall('.//METAR/observation_time')
     example_time_string = random.choice(metar_times_list).text
-    print('example_time_string = ' + example_time_string)
+    logging.debug('example_time_string = ' + example_time_string)
     #TODO: do time zone stuff
     date_obj = datetime.datetime.strptime(example_time_string, \
             '%Y-%m-%dT%H:%M:%SZ')
-    print('date_obj = ' + str(date_obj))
+    logging.debug('date_obj = ' + str(date_obj))
 
-logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
-        filemode='w', format='\n%(asctime)s - %(levelname)s - %(message)s')
 
 if len(sys.argv) > 1:
     """Process command-line arguments"""
@@ -317,13 +324,19 @@ map_request = requests.get(map_url)
 with open('images/map.jpg', 'wb') as map_img:
     map_img.write(map_request.content)
 
+test()
+
 file_contents_string = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
 file_contents_string += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
-file_contents_string += '</title>\n</head>\n<body>\n<h1>Most recent URLs:</h1>'
+file_contents_string += '</title>\n'
+file_contents_string += '<style>\na[href] {word-wrap:break-word;}\n'
+file_contents_string += 'p {margin-top: 0px; margin-bottom: 0.5em;}</style>\n'
+file_contents_string += '</head>\n<body>\n<h1>Most recent URLs:</h1>'
 file_contents_string += '\n<a href=' + metar_url + '>METARs</a></br>'
 file_contents_string += '\n<a href=' + taf_url + '>TAFs</a></br>'
 file_contents_string += '\n<a href=' + field_url + '>FIELDs</a></br>'
 file_contents_string += '\n<a href=images/map.jpg>Google Map</a></br>'
+file_contents_string += '\n'
 with open('.logs/test.log', newline='\n') as f:
     for line in f:
         file_contents_string += '<p>' + line + '</p>'
