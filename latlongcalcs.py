@@ -13,7 +13,7 @@ def hav(angle:float) -> float:
     """Return the haversine of an angle (input in radians)"""
     try:
         float(angle)
-    except ValueError:
+    except TypeError:
         raise Exception("Input to hav must be numeric, received " + angle)
     else:
         return math.sin(angle/2)**2
@@ -31,3 +31,39 @@ def dist_between_coords(lat1, long1, lat2, long2) -> float:
     # Reference https://en.wikipedia.org/wiki/Haversine_formula
     return 2 * r * math.asin(math.sqrt(hav(lat2 - lat1) + math.cos(lat1) \
         * math.cos(lat2) * hav(long2 - long1)))
+
+def hdg_between_coords(lat1, long1, lat2, long2) -> float:
+    # Reference: https://www.movable-type.co.uk/scripts/latlong.html
+    # TODO: change the output so it spits out a cardinal/subcardinal
+    # TODO: input validation
+    """Return heading (true) from point 1 to point 2"""
+    lat1 = math.radians(float(lat1))
+    long1 = math.radians(float(long1))
+    lat2 = math.radians(float(lat2))
+    long2 = math.radians(float(long2))
+    x = math.cos(lat2) * math.sin(abs(long1 - long2))
+    y = math.cos(lat1) * math.sin(lat2) - \
+            math.sin(lat1) * math.cos(lat2) * math.cos(abs(long1 - long2))
+    return math.degrees(math.atan2(x, y))
+
+def card_from_hdg(hdg:float) -> str:
+    hdg %= 360
+    if hdg >= 337.5 and hdg < 22.5:
+        return 'N'
+    elif hdg >= 22.5 and hdg < 67.5:
+        return 'NE'
+    elif hdg >= 67.5 and hdg < 112.5:
+        return 'E'
+    elif hdg >= 112.5 and hdg < 157.5:
+        return 'SE'
+    elif hdg >= 157.5 and hdg < 202.5:
+        return 'S'
+    elif hdg >= 202.5 and hdg < 247.5:
+        return 'SW'
+    elif hdg >= 247.5 and hdg < 292.5:
+        return 'W'
+    elif hdg >= 292.5 and hdg < 337.5:
+        return 'NW'
+    else:
+        raise Exception("Invalid input or impossible case reached")
+        return 'ERROR'

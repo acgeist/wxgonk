@@ -141,14 +141,23 @@ def print_node(node, indent:int = 0):
 def make_coord_list():
     '''Make a list of all field locations. Used to generate map URL.'''
     field_list = []
+    temp_node = {}
     for field in field_root.findall('.//Station'):
-        field_list.append({
+        temp_node = { 
             'station_id': field.find('station_id').text,
             'name': field_root.findall('.//*.[station_id="'
                 + field.find('station_id').text
                 + '"]/site')[0].text,
             'lat': field.find('latitude').text,
-            'lon': field.find('longitude').text})
+            'lon': field.find('longitude').text}
+        # Homestation/destination needs to be first item in the list.
+        # This affects the Google Map that is created later on.
+        if temp_node['station_id'] == DEST_ID:
+            field_list.insert(0, temp_node)
+        else:
+            field_list.append(temp_node)
+    # Move homestation to front of list to ensure it's at index 0
+    # field_list.insert(0, field_list.pop(field_list.index(
     return field_list
         
 def gen_bad_fields(country:str = '00') -> List[str]:
