@@ -2,10 +2,7 @@
 # wxgonk.py
 
 # TODO:
-# -turn all print statements into a debug string, then generate html
-#  using yattag.  Html debugging page should include links to metars,
-#  tafs, fields, and a google map, and should have a whole report of
-#  all testing that has been done.  In the end this should be used
+#  Eventually, index.html should be used
 #  to present the data (i.e. build the display table). For troubleshooting
 #  purposes, can also turn this into an AFI 11-202v3 tutorial.
 # -Include an option for using USAF rules vice FAA rules.  Under FAA rules,
@@ -47,14 +44,14 @@ TEST_FIELDS = []
 #logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
         #filemode='w', format='\n%(asctime)s - %(levelname)s - %(message)s')
 logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
-        filemode='w', format='\n%(message)s')
+        filemode='w', format='\n%(filename)s - line %(lineno)s, %(funcName)s: %(message)s')
 
 class InvalidFunctionInput(Exception):
     pass
 class InvalidDataType(Exception):
     pass
 
-def getRoot(url:str):
+def get_root(url:str):
     return etree.fromstring(urllib.request.urlopen(url).read())
     
 def can_file_metar(metar_node, field:str) -> bool:
@@ -128,7 +125,7 @@ def get_raw_metar_str(field:str) -> str:
             + '"]/raw_text')[0].text
     else:
         temp_url = wxurlmaker.make_adds_url('METAR', field.split())
-        temp_root = getRoot(temp_url)
+        temp_root = get_root(temp_url)
         return temp_root.findall('.//raw_text')[0].text if \
                 int(temp_root.find('data').attrib['num_results']) > 0 else \
                 'METAR for ' + field + ' not found.'
@@ -174,7 +171,7 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
         logging.debug('Looking for bad weather in ' + country_choice + ' (' 
                 + countries.country_name_from_code(country_choice) + '), ')
         bad_field_url = wxurlmaker.make_adds_url('country', [], country_choice)
-        bad_field_root = getRoot(bad_field_url)
+        bad_field_root = get_root(bad_field_url)
         bad_fields_list = [] 
         logging.debug(bad_field_root.find('data').attrib['num_results']
                 + ' fields found.')
@@ -189,7 +186,7 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
         for i in range(0, min(1000, len(bad_fields_list))):
             rand_field_list.append(random.choice(bad_fields_list))
         bad_metar_url = wxurlmaker.make_adds_url('METAR', stationList = rand_field_list)
-        bad_metar_root = getRoot(bad_metar_url)
+        bad_metar_root = get_root(bad_metar_url)
         bad_metars = bad_metar_root.findall('.//METAR')
         bad_metars = list(filter(lambda metar:
             not re.search('\d+', metar.find('station_id').text) and
@@ -314,9 +311,9 @@ metar_url = wxurlmaker.make_adds_url('metars', TEST_FIELDS)
 field_url = wxurlmaker.make_adds_url('fields', TEST_FIELDS)    
 urls = [taf_url, metar_url, field_url]
 
-taf_root = getRoot(taf_url)
-metar_root = getRoot(metar_url)
-field_root = getRoot(field_url)
+taf_root = get_root(taf_url)
+metar_root = get_root(metar_url)
+field_root = get_root(field_url)
 roots = [taf_root, metar_root, field_root]
 
 map_url = mapurlmaker.make_map_url(make_coord_list())

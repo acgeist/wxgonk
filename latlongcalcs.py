@@ -20,7 +20,7 @@ def hav(angle:float) -> float:
         return math.sin(angle/2)**2
 
 def dist_between_coords(lat1, long1, lat2, long2) -> float:
-    """Use the Haversine formula to calculate distance between two points"""
+    """Use the Haversine formula to calculate distance in nm between two points"""
     # TODO: write test cases!
     # TODO: include capability to use different units
     # TODO: add error handling
