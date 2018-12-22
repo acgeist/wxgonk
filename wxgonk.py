@@ -164,7 +164,7 @@ def make_coord_list():
     # field_list.insert(0, field_list.pop(field_list.index(
     return field_list
         
-def gen_bad_fields(country:str = '00') -> List[str]:
+def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
     is_valid_choice = False
     country_choices = list(COUNTRY_DICT.keys())
     while not is_valid_choice:
@@ -178,13 +178,14 @@ def gen_bad_fields(country:str = '00') -> List[str]:
         bad_fields_list = [] 
         logging.debug(bad_field_root.find('data').attrib['num_results']
                 + ' fields found.')
+        # if no results were returned, we don't want to try this country again.
         if bad_field_root.find('data').attrib['num_results'] == 0:
             country_choices.remove(country_choice)
             continue
         for field in bad_field_root.findall('.//Station'):
             bad_fields_list.append(field.find('station_id').text)
         rand_field_list = []
-        # http requests start to break with >1000 fields
+        # Based on trial/error, http requests start to break with >1000 fields
         for i in range(0, min(1000, len(bad_fields_list))):
             rand_field_list.append(random.choice(bad_fields_list))
         bad_metar_url = wxurlmaker.make_adds_url('METAR', stationList = rand_field_list)
@@ -200,15 +201,14 @@ def gen_bad_fields(country:str = '00') -> List[str]:
         else:
             logging.debug('No fields in ' 
                     + countries.country_name_from_code(country_choice) 
-                    + ' currently have visibility', 
-                    '< ' + str(ALT_REQ['vis']) + '. Picking another country.')
+                    + ' currently have visibility < ' 
+                    + str(ALT_REQ['vis']) + '. Picking another country.')
             country_choices.remove(country_choice)
     logging.debug(str(len(bad_metars)) + ' fields in ' 
             + countries.country_name_from_code(country_choice) 
-            + ' currently have visibility < ' + 
-            str(ALT_REQ['vis']))
-    if len(bad_metars) > 10:
-        del bad_metars[10:]
+            + ' currently have visibility < ' + str(ALT_REQ['vis']))
+    if len(bad_metars) > num_results:
+        del bad_metars[num_results:]
     bad_field_ids = []
     for metar in bad_metars:
         bad_field_ids.append(metar.find('station_id').text)

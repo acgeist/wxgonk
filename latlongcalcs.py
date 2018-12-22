@@ -45,16 +45,18 @@ def hdg_between_coords(lat1, long1, lat2, long2) -> float:
     long1 = math.radians(float(long1))
     lat2 = math.radians(float(lat2))
     long2 = math.radians(float(long2))
-    x = math.cos(lat2) * math.sin(abs(long1 - long2))
+    d_long = long2 - long1
+    x = math.cos(lat2) * math.sin(d_long)
     y = math.cos(lat1) * math.sin(lat2) - \
-            math.sin(lat1) * math.cos(lat2) * math.cos(abs(long1 - long2))
-    return_val = math.degrees(math.atan2(x, y)) % 360
+            math.sin(lat1) * math.cos(lat2) * math.cos(d_long)
+    return_val = math.degrees(math.atan2(x, y))
+    return_val %= 360
     logging.debug(str(return_val))
     return return_val
 
 def card_from_hdg(hdg:float) -> str:
     hdg %= 360
-    if hdg >= 337.5 and hdg < 22.5:
+    if hdg >= 337.5 or hdg < 22.5:
         return 'N'
     elif hdg >= 22.5 and hdg < 67.5:
         return 'NE'
