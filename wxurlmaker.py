@@ -27,10 +27,6 @@ def make_adds_url(
     if not dataType.upper() in all_valid_inputs:
         raise InvalidFunctionInput("dataType must be one of: " \
                 + ', '.join(all_valid_inputs))
-#    if not is_valid_country(country.upper()):
-#        raise InvalidFunctionInput("Function make_adds_url was passed " + country +
-#                ", which was not recognized as a valid 2-letter identifier." +
-#                " reference https://laendercode.net/en/2-letter-list.html.")
     if not re.search('[a-z]{2}', country.lower()) and dataType in valid_country_inputs:
         raise InvalidFunctionInput("country must be a 2-letter abbreviation " 
                 + "in accordance with ISO-3166-1 ALPHA-2.  Function was passed "
@@ -62,6 +58,13 @@ def make_adds_url(
     url += '&stationString='
     url += '%20'.join(stationList)
     logging.debug('<a href="' + url + '">' + url + '</a>')
+    return url
+
+def make_metar_taf_url(stationList:List[str]) -> str:
+    url = 'https://www.aviationweather.gov/adds/metars?station_ids='
+    url += '+'.join(stationList)
+    url += '&submitmet=Get+Weather&std_trans=standard&chk_metars=on'
+    url += '&hoursStr=most+recent+only&chk_tafs=on'
     return url
 
 class InvalidFunctionInput(Exception):

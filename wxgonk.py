@@ -206,12 +206,22 @@ def make_coord_list():
     return field_list
         
 def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
+    '''Generate a list of ICAO ids where the visibility is currently bad'''
+    # TODO: develop some persistent data to keep track of which countries
+    # rarely yield bad weather and stop choosing those as often.  Perhaps
+    # weight the countries based on how many fields are there? Could also
+    # consider querying every country and removing from my countries data 
+    # file all countries that return 0 fields.
     is_valid_choice = False
     country_choices = list(COUNTRY_DICT.keys())
+    num_countries_tried = 0 # For debugging/data gathering
+    countries_tried_str = ''
     while not is_valid_choice:
+        num_countries_tried += 1
         country_choice = random.choice(country_choices) if \
                 not countries.is_valid_country(country) else \
                 country
+        countries_tried_str += country_choice + ' '
         logging.debug('Looking for bad weather in ' + country_choice + ' (' 
                 + countries.country_name_from_code(country_choice) + '), ')
         bad_field_url = wxurlmaker.make_adds_url('country', [], country_choice)
@@ -219,17 +229,23 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
         bad_fields_list = [] 
         logging.debug(bad_field_root.find('data').attrib['num_results']
                 + ' fields found.')
-        # if no results were returned, we don't want to try this country again.
-        if bad_field_root.find('data').attrib['num_results'] == 0:
+        # if not many results were returned, we 
+        # don't want to try this country again.
+        if int(bad_field_root.find('data').attrib['num_results']) < 10:
             country_choices.remove(country_choice)
             continue
         for field in bad_field_root.findall('.//Station'):
-            bad_fields_list.append(field.find('station_id').text)
+            # Ensure field has TAF capability
+            if field.findall('.//TAF'):
+                bad_fields_list.append(field.find('station_id').text)
         rand_field_list = []
         # Based on trial/error, http requests start to break with >1000 fields
         for i in range(0, min(1000, len(bad_fields_list))):
-            rand_field_list.append(random.choice(bad_fields_list))
-        bad_metar_url = wxurlmaker.make_adds_url('METAR', stationList = rand_field_list)
+            new_addition = random.choice(bad_fields_list)
+            if not new_addition in rand_field_list:
+                rand_field_list.append(new_addition)
+        bad_metar_url = wxurlmaker.make_adds_url('METAR', \
+                stationList = rand_field_list)
         bad_metar_root = get_root(bad_metar_url)
         bad_metars = bad_metar_root.findall('.//METAR')
         bad_metars = list(filter(lambda metar:
@@ -237,6 +253,9 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
             metar.find('visibility_statute_mi') is not None and
             float(metar.find('visibility_statute_mi').text) < ALT_REQ['vis'],
             bad_metars))
+        # TODO: filter bad metars by whether or not the site itself has
+        # TAF capability.  This is listed in the station xml file under
+        # <Station><site_type><TAF/></site_type></Station>
         if len(bad_metars) > 2:
             is_valid_choice = True
         else:
@@ -245,6 +264,8 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
                     + ' currently have visibility < ' 
                     + str(ALT_REQ['vis']) + '. Picking another country.')
             country_choices.remove(country_choice)
+    logging.debug('Tried ' + str(num_countries_tried - 1) \
+            + ' countries unsuccessfully: ' + countries_tried_str[:-3])
     logging.debug(str(len(bad_metars)) + ' fields in ' 
             + countries.country_name_from_code(country_choice) 
             + ' currently have visibility < ' + str(ALT_REQ['vis']))
@@ -374,10 +395,12 @@ file_contents_string += '</title>\n'
 file_contents_string += '<style>\na[href] {word-wrap:break-word;}\n'
 file_contents_string += 'p {margin-top: 0px; margin-bottom: 0.5em;}</style>\n'
 file_contents_string += '</head>\n<body>\n<h1>Most recent URLs:</h1>'
-file_contents_string += '\n<a href=' + metar_url + '>METARs</a></br>'
-file_contents_string += '\n<a href=' + taf_url + '>TAFs</a></br>'
-file_contents_string += '\n<a href=' + field_url + '>FIELDs</a></br>'
-file_contents_string += '\n<a href=images/map.jpg>Google Map</a></br>'
+file_contents_string += '\n<a href=' + metar_url + '>METAR XML</a></br>'
+file_contents_string += '\n<a href=' + taf_url + '>TAF XML</a></br>'
+file_contents_string += '\n<a href=' + field_url + '>FIELD XML</a></br>'
+file_contents_string += '\n<a href=' + wxurlmaker.make_metar_taf_url(TEST_FIELDS)
+file_contents_string += '>Normal TAFs & METARs</a></br>'
+file_contents_string += '\n<a href=images/map.jpg>Google Static Map</a></br>'
 file_contents_string += '\n'
 with open('.logs/test.log', newline='\n') as f:
     for line in f:
