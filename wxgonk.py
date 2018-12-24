@@ -43,8 +43,11 @@ TEST_FIELDS = []
 
 #logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
         #filemode='w', format='\n%(asctime)s - %(levelname)s - %(message)s')
-logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
-        filemode='w', format='\n%(filename)s - line %(lineno)s, %(funcName)s: %(message)s')
+logging.basicConfig( \
+        level=logging.DEBUG, \
+        filename = '.logs/test.log', \
+        filemode='w', \
+        format='\n%(filename)s - line %(lineno)s, %(funcName)s: %(message)s')
 
 class InvalidFunctionInput(Exception):
     pass
@@ -116,19 +119,52 @@ def valid_alt(node, field:str) -> bool:
     ceil_at_alt = get_ceiling(node)
     return vis_at_alt < ALT_MINS['vis'] or ceil_at_alt < ALT_MINS['ceiling']
 
-def get_raw_metar_str(field:str) -> str:
-    '''Print the raw metar for a given 4-letter identifier'''
-    if not isinstance(field, str) or re.match(r'\b[a-zA-Z]{4}\b', field) == None:
-        raise InvalidFunctionInput("Invalid input at get_raw_metar_str: " + field)
-    if field in TEST_FIELDS:
-        return metar_root.findall('.//*[station_id="' + field.upper()
-            + '"]/raw_text')[0].text
+def get_raw_text(field:str, metar_or_taf:str) -> str:
+    '''Print the raw metar or taf for a given 4-letter ICAO identifier'''
+    ### INPUT VALIDATION ###
+    # TODO: write a function to validate ICAO identifiers.  Should figure out
+    # how to pull a list of all valid identifiers from an official database
+    # and do a simple lookup.
+    if not isinstance(field, str) or not isinstance(metar_or_taf, str):
+        err_str = 'One of the inputs to get_raw_text was not ' + 'a string.\n'
+        err_str += 'field = ' + str(field) + ', type(field) = '
+        err_str += str(type(field)) + '\nmetar_or_taf = ' + str(metar_or_taf)
+        err_str += ', type(metar_or_taf) = ' + str(type(metar_or_taf))
+        logging.warning(err_str)
+        raise InvalidFunctionInput(err_str)
+    if re.match(r'\b[a-zA-Z]{4}\b', field) == None:
+        err_str = 'Invalid value for field in function get_raw_text: ' + field
+        logging.warning(err_str)
+        raise InvalidFunctionInput(err_str)
+    if not re.match(r'(METAR|TAF|BOTH)', metar_or_taf.upper()):
+        err_str = 'Invalid input at get_raw_text, second argument must be '
+        err_str += '"metar", "taf", or "both" (case insensitive). Received ' 
+        err_str += metar_or_taf
+        logging.warning(err_str)
+        raise InvalidFunctionInput(err_str)
+    ### ACTUALLY DOING THE THING ###
+    result_str = ''
+    if field in TEST_FIELDS: 
+    #TODO: this should check if there is actually a metar or taf for the given
+    # field rather than just checking if the field is in TEST_FIELDS
+        temp_root = metar_root if metar_or_taf.upper() == 'METAR' else \
+                taf_root
+        result_str = temp_root.findall('.//*[station_id="' + field.upper()
+                + '"]/raw_text')[0].text
     else:
-        temp_url = wxurlmaker.make_adds_url('METAR', field.split())
+        temp_url = wxurlmaker.make_adds_url('METAR', field.split()) if \
+                metar_or_taf.upper() == 'METAR' else \
+                wxurlmaker.make_adds_url('TAF', field.split())
         temp_root = get_root(temp_url)
-        return temp_root.findall('.//raw_text')[0].text if \
+        result_str = temp_root.findall('.//raw_text')[0].text if \
                 int(temp_root.find('data').attrib['num_results']) > 0 else \
-                'METAR for ' + field + ' not found.'
+                metar_or_taf.upper() + 'for ' + field + ' not found.'
+    # Add newlines to make raw text TAFs easier to read
+    if metar_or_taf.upper() == 'TAF' or metar_or_taf.upper() == 'BOTH':
+        result_str = re.sub(r'(TAF|FM|TEMPO|BECMG)', r'\n\1', result_str)
+    if metar_or_taf.upper() == 'BOTH':
+        result_str = get_raw_text(field, 'METAR') + '\n' + result_str
+    return result_str
 
 def print_node(node, indent:int = 0):
     '''Print an XML tree'''
@@ -212,7 +248,6 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
     return bad_field_ids
 
 def test():
-    logging.debug('Entering "test()" method')
     home_lat = float(field_root.findall('.//*.[station_id="' + DEST_ID 
             + '"]/latitude')[0].text) 
     home_lon = float(field_root.findall('.//*.[station_id="' + DEST_ID 
@@ -222,10 +257,11 @@ def test():
             + '"]/site')[0].text + '), located at lat/long: ' 
         + str(home_lat) + ', '+ str(home_lon))
     for root in roots:
-        logging.debug('Received ' + root.find('data').attrib['num_results']
-                + ' ' +  root.find('data_source').attrib['name'] + ': ')
+        results = 'Received ' + root.find('data').attrib['num_results']
+        results += ' ' +  root.find('data_source').attrib['name'] + ': '
         for id in root.findall('.//station_id'):
-            logging.debug(id.text)
+            results += ' ' + id.text
+        logging.debug(results)
     for field in field_root.findall('.//Station'):
         if not field.find('station_id').text in DEST_ID:
             logging.debug(field.find('station_id').text + '('
@@ -236,23 +272,23 @@ def test():
                         home_lat, home_lon,
                         field.find('latitude').text, 
                         field.find('longitude').text)))
-                    + ' statute miles from ' 
-                    + DEST_ID + ' on a heading of '
-                    + "{:03d}".format(round(latlongcalcs.hdg_between_coords(
+                    + ' nautical miles from ' + DEST_ID + ' on a heading of '
+                    + '{:03d}'.format(round(latlongcalcs.hdg_between_coords(
                         home_lat, home_lon,
                         field.find('latitude').text, 
                         field.find('longitude').text)))
                     + ' true.')
-                        
+            logging.debug('Current METAR/TAF at ' \
+                    + field.find('station_id').text + ': \n')
+            logging.debug('\n' + get_raw_text(field.find('station_id').text, \
+                    'both'))
+
 
     # https://docs.python.org/2/library.xml.etree.elementtree.html#elementtree-xpath
     metars = metar_root.findall('.//METAR')
 
-    for metar in metars:
-        logging.debug(metar.find('raw_text').text)
-
     logging.debug('Can I legally file to ' + DEST_ID + '?')
-    logging.debug(get_raw_metar_str(DEST_ID))
+    logging.debug(get_raw_text(DEST_ID, 'METAR'))
     logging.debug('can_file_metar: ' + str(can_file_metar(metar_root, DEST_ID)))
     logging.debug('has_ceiling: ' + str(has_ceiling(metar_root.findall('.//*[station_id="' 
         + DEST_ID + '"]/sky_condition'))))
@@ -264,6 +300,7 @@ def test():
         logging.debug('Do I require an alternate to file to ' + DEST_ID + '?')
         logging.debug('req_alt: ' + str(req_alt(metar_root)))
 
+    tafs = taf_root.findall('.//TAF')
 
     # Times follow format YYYY-mm-ddTHH:MM:SSZ
     metar_times_list = metar_root.findall('.//METAR/observation_time')

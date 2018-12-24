@@ -20,11 +20,14 @@ def hav(angle:float) -> float:
         return math.sin(angle/2)**2
 
 def dist_between_coords(lat1, long1, lat2, long2) -> float:
-    """Use the Haversine formula to calculate distance in nm between two points"""
+    """Use Haversine formula to calculate dist. in nm between two points"""
+    # *treats the earth as a sphere, so some inherent inaccuracy.
+    # Close enough for government work though.
     # TODO: write test cases!
     # TODO: include capability to use different units
     # TODO: add error handling
     r = 3959.0   # Radius of the earth in statute miles 
+    r *= 0.868976 # conversion from sm to nm
     lat1 = math.radians(float(lat1))
     long1 = math.radians(float(long1))
     lat2 = math.radians(float(lat2))
@@ -38,9 +41,9 @@ def hdg_between_coords(lat1, long1, lat2, long2) -> float:
     # TODO: change the output so it spits out a cardinal/subcardinal
     # TODO: input validation
     """Return heading (true) from point 1 to point 2"""
-    logging.debug('hdg_between_coords(lat1 = ' + str(lat1)
-            + ', long1 = ' + str(long1) + ', lat2 = ' + str(lat2)
-            + ', long2 = ' + str(long2) + ') returns: ')
+    debug_str = 'hdg_between_coords(lat1 = ' + str(lat1) \
+            + ', long1 = ' + str(long1) + ', lat2 = ' + str(lat2) \
+            + ', long2 = ' + str(long2) + ') returns '
     lat1 = math.radians(float(lat1))
     long1 = math.radians(float(long1))
     lat2 = math.radians(float(lat2))
@@ -51,7 +54,8 @@ def hdg_between_coords(lat1, long1, lat2, long2) -> float:
             math.sin(lat1) * math.cos(lat2) * math.cos(d_long)
     return_val = math.degrees(math.atan2(x, y))
     return_val %= 360
-    logging.debug(str(return_val))
+    debug_str += '{:.1f}'.format(return_val) + 'nm.'
+    logging.debug(debug_str)
     return return_val
 
 def card_from_hdg(hdg:float) -> str:
