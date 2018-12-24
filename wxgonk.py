@@ -57,6 +57,11 @@ class InvalidDataType(Exception):
 def get_root(url:str):
     return etree.fromstring(urllib.request.urlopen(url).read())
     
+def contains(node, field:str) -> bool:
+    # if no result is found, [] (an empty list) will be returned, which
+    # is a so-called falsey value in python
+    return node.findall('.//*[station_id="' + field.upper() + '"]/raw_text') 
+    
 def can_file_metar(metar_node, field:str) -> bool:
     '''Return filing legality based on current conditions'''
     vis_at_dest = float(metar_node.findall('.//*[station_id="' + DEST_ID 
@@ -142,6 +147,8 @@ def get_raw_text(field:str, metar_or_taf:str) -> str:
         err_str += metar_or_taf
         logging.warning(err_str)
         raise InvalidFunctionInput(err_str)
+    logging.debug('get_raw_text called with parameters: field = ' + field \
+            + ', metar_or_taf = ' + metar_or_taf.upper())
     ### ACTUALLY DOING THE THING ###
     result_str = ''
     if field in TEST_FIELDS: 
@@ -149,8 +156,9 @@ def get_raw_text(field:str, metar_or_taf:str) -> str:
     # field rather than just checking if the field is in TEST_FIELDS
         temp_root = metar_root if metar_or_taf.upper() == 'METAR' else \
                 taf_root
-        result_str = temp_root.findall('.//*[station_id="' + field.upper()
-                + '"]/raw_text')[0].text
+        result_str = '' if not contains(temp_root, field) else \
+                temp_root.findall('.//*[station_id="' + field.upper()
+                        + '"]/raw_text')[0].text
     else:
         temp_url = wxurlmaker.make_adds_url('METAR', field.split()) if \
                 metar_or_taf.upper() == 'METAR' else \
@@ -158,7 +166,7 @@ def get_raw_text(field:str, metar_or_taf:str) -> str:
         temp_root = get_root(temp_url)
         result_str = temp_root.findall('.//raw_text')[0].text if \
                 int(temp_root.find('data').attrib['num_results']) > 0 else \
-                metar_or_taf.upper() + 'for ' + field + ' not found.'
+                metar_or_taf.upper() + ' for ' + field + ' not found.'
     # Add newlines to make raw text TAFs easier to read
     if metar_or_taf.upper() == 'TAF' or metar_or_taf.upper() == 'BOTH':
         result_str = re.sub(r'(TAF|FM|TEMPO|BECMG)', r'\n\1', result_str)
@@ -263,8 +271,8 @@ def test():
             results += ' ' + id.text
         logging.debug(results)
     for field in field_root.findall('.//Station'):
-        if not field.find('station_id').text in DEST_ID:
-            logging.debug(field.find('station_id').text + '('
+        if not field.find('station_id').text == DEST_ID:
+            logging.debug(field.find('station_id').text + ' ('
                     + field_root.findall('.//*.[station_id="' 
                         + field.find('station_id').text
                         + '"]/site')[0].text + ') is ' 
@@ -278,9 +286,9 @@ def test():
                         field.find('latitude').text, 
                         field.find('longitude').text)))
                     + ' true.')
-            logging.debug('Current METAR/TAF at ' \
-                    + field.find('station_id').text + ': \n')
-            logging.debug('\n' + get_raw_text(field.find('station_id').text, \
+            logging.debug('\nCurrent METAR/TAF at ' \
+                    + field.find('station_id').text + ': \n' \
+                    + get_raw_text(field.find('station_id').text, \
                     'both'))
 
 
@@ -315,7 +323,7 @@ def test():
 if len(sys.argv) > 1:
     """Process command-line arguments"""
     # TODO: put some kind of limitation on number of fields that can be searched.
-    logging.debug('sys.argv = ' + ' '.join(sys.argv) + '\n')
+    logging.debug('sys.argv = ["' + '", "'.join(sys.argv) + '"]\n')
     # If there's only one argument and it is a valid two-letter country 
     # identifier, search that country for bad weather.
     if re.match(r'\b[a-zA-Z]{2}\b', sys.argv[1]) and \

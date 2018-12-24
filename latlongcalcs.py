@@ -19,13 +19,13 @@ def hav(angle:float) -> float:
     else:
         return math.sin(angle/2)**2
 
-def dist_between_coords(lat1, long1, lat2, long2) -> float:
+def dist_between_coords(lat1, long1, lat2, long2, units:str = 'nm') -> float:
     """Use Haversine formula to calculate dist. in nm between two points"""
     # *treats the earth as a sphere, so some inherent inaccuracy.
     # Close enough for government work though.
     # TODO: write test cases!
     # TODO: include capability to use different units
-    # TODO: add error handling
+    # TODO: add error handling/input validation
     r = 3959.0   # Radius of the earth in statute miles 
     r *= 0.868976 # conversion from sm to nm
     lat1 = math.radians(float(lat1))
