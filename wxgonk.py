@@ -408,8 +408,6 @@ if __name__ == '__main__':
     html_str += '</title>\n'
     # This short CSS snippet ensures that long URLs wrap instead of forcing
     # the user to scroll to the right.
-    html_str += '<style>\na[href] {word-wrap:break-word;}\n'
-    html_str += 'p {margin-top: 0px; margin-bottom: 0.5em;}</style>\n'
     html_str += '</head>\n<body>'
     html_str += '\n<h1>Most recent URLs:</h1>'
     html_str += '\n<a href=' + metar_url + '>METAR XML</a></br>'

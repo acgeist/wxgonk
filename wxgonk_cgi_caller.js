@@ -17,16 +17,20 @@ function run_wxgonk(){
     } else if (window.ActiveXObject){
         xhr = new ActiveXObject("Microsoft.XMLHTTP");
     }
-    if (xhr.readyState !== XMLHttpRequest.DONE){
-        setInterval(function(){
+    var timer = 0;
+    setInterval(function(){
+        if (xhr.readyState !== XMLHttpRequest.DONE){
             document.getElementById("wxgonk-results").innerHTML += ".";
-        }, 1000);
-    } else {
-        return;
-    }
+            timer ++;
+        } else {
+            return;
+        }
+    }, 1000);
     xhr.onreadystatechange = function(){
         if (xhr.readyState == XMLHttpRequest.DONE){
-            document.getElementById("wxgonk-results").innerHTML=xhr.responseText;
+            let str = '<p class="test">Wxgonk ran in ' + timer + ' seconds.</p>';
+            str += xhr.responseText;
+            document.getElementById("wxgonk-results").innerHTML = str;
         }
     }
     xhr.open("GET",url,true);
