@@ -17,6 +17,13 @@ function run_wxgonk(){
     } else if (window.ActiveXObject){
         xhr = new ActiveXObject("Microsoft.XMLHTTP");
     }
+    if (xhr.readyState !== XMLHttpRequest.DONE){
+        setInterval(function(){
+            document.getElementById("wxgonk-results").innerHTML += ".";
+        }, 1000);
+    } else {
+        return;
+    }
     xhr.onreadystatechange = function(){
         if (xhr.readyState == XMLHttpRequest.DONE){
             document.getElementById("wxgonk-results").innerHTML=xhr.responseText;
