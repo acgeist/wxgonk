@@ -21,6 +21,7 @@ import wxurlmaker
 
 import datetime
 import logging
+import os
 import random
 import re 
 import requests
@@ -282,6 +283,11 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
         bad_field_ids.append(metar.find('station_id').text)
     return bad_field_ids
 
+def called_from_cgi()->bool:
+    """Return true if called from cgi, false if called directly"""
+    # Reference https://stackoverflow.com/q/5077980
+    return 'REQUEST_METHOD' in os.environ
+
 def test():
     home_lat = float(field_root.findall('.//*.[station_id="' + DEST_ID 
             + '"]/latitude')[0].text) 
@@ -402,13 +408,13 @@ if __name__ == '__main__':
     # TODO: this should be a pre-formatted html file that I can go into 
     # and only change the content within certain tags.
     # This first line (content-type) is required for CGI to work
-    html_str = 'Content-type: text/html\n\n'
-    html_str += '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
-    html_str += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
-    html_str += '</title>\n'
-    # This short CSS snippet ensures that long URLs wrap instead of forcing
-    # the user to scroll to the right.
-    html_str += '</head>\n<body>'
+    html_str = ''
+    if called_from_cgi():
+        html_str += 'Content-type: text/html\n\n'
+        html_str += '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+        html_str += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
+        html_str += '</title>\n'
+        html_str += '</head>\n<body>'
     html_str += '\n<h1>Most recent URLs:</h1>'
     html_str += '\n<a href=' + metar_url + '>METAR XML</a></br>'
     html_str += '\n<a href=' + taf_url + '>TAF XML</a></br>'
@@ -420,7 +426,9 @@ if __name__ == '__main__':
     with open('.logs/test.log', newline='\n') as f:
         for line in f:
             html_str += '<p>' + line + '</p>'
-    html_str += '</body>\n</html>'
-    with open('index.html', 'w') as url_file:
-        url_file.write(html_str)
-    print(html_str)
+    if called_from_cgi():
+        print(html_str)
+    else:
+        html_str += '</body>\n</html>'
+        with open('index.html', 'w') as url_file:
+            url_file.write(html_str)

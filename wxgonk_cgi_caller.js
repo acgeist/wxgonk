@@ -9,6 +9,8 @@
 
 'use strict';
 
+//TODO: add parameters to this function so command line arguments can be sent to 
+//wxgonk.py.
 function run_wxgonk(){
     var url="wxgonk.py";
     var xhr=null;
