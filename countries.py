@@ -13,7 +13,7 @@ def make_country_dict(
     from a csv file.
     """
     country_dict = {}
-    with open(csv_file) as country_csv:
+    with open(csv_file, encoding='utf-8') as country_csv:
         for line in country_csv:
             key, value = line.strip().split(',')
             country_dict[key] = value

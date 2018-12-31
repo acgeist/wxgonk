@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # wxgonk.py
 
 # TODO:
@@ -43,6 +44,7 @@ TEST_FIELDS = []
 
 #logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
         #filemode='w', format='\n%(asctime)s - %(levelname)s - %(message)s')
+# TODO: This should perhaps be in a "main.py" file
 logging.basicConfig( \
         level=logging.DEBUG, \
         filename = '.logs/test.log', \
@@ -55,11 +57,15 @@ class InvalidDataType(Exception):
     pass
 
 def get_root(url:str):
+    '''Return the root node of an xml file'''
     return etree.fromstring(urllib.request.urlopen(url).read())
     
-def contains(node, field:str) -> bool:
+def node_contains_field(node, field:str) -> bool:
+    '''Return whether or not a particular node contains a given station'''
     # if no result is found, [] (an empty list) will be returned, which
     # is a so-called falsey value in python
+    if re.match(r'\b[a-zA-Z]{4}\b', field) == None:
+        return false
     return node.findall('.//*[station_id="' + field.upper() + '"]/raw_text') 
     
 def can_file_metar(metar_node, field:str) -> bool:
@@ -156,7 +162,7 @@ def get_raw_text(field:str, metar_or_taf:str) -> str:
     # field rather than just checking if the field is in TEST_FIELDS
         temp_root = metar_root if metar_or_taf.upper() == 'METAR' else \
                 taf_root
-        result_str = '' if not contains(temp_root, field) else \
+        result_str = '' if not node_contains_field(temp_root, field) else \
                 temp_root.findall('.//*[station_id="' + field.upper()
                         + '"]/raw_text')[0].text
     else:
@@ -353,21 +359,23 @@ if len(sys.argv) > 1:
         TEST_FIELDS = gen_bad_fields(sys.argv[1])
     else:
         for arg in sys.argv[1:]:
-            # Reference https://aviation.stackexchange.com/a/14593 and FAA Order 
-            # JO 7350.9. We're only going 
-            # to use/deal with 4-letter fields, as two-letter, two-number ids likely
-            # reference private fields or fields smaller than we'll be using for 
-            # military flying.
+            # Reference https://aviation.stackexchange.com/a/14593 and FAA Order
+            # JO 7350.9. We're only going to use/deal with 4-letter fields, as 
+            # two-letter, two-number ids likely reference private fields or 
+            # fields smaller than we'll be using for military flying.
             if re.match(r'\b[a-zA-Z]{4}\b', arg) == None:
                 logging.warning('The command line argument "' + arg + '" did not match '
                         + 'the pattern for a valid ICAO identifier.\n')
                 break
             else:
+                # TODO: make this less wonky - it current appends all the args
+                # as long as one of them was valid.
                 TEST_FIELDS.append(arg.upper())
     logging.debug('TEST_FIELDS set to ' + ', '.join(TEST_FIELDS) + '\n')
 else:
     logging.debug('No command-line arguments detected. Picking random fields.\n')
     TEST_FIELDS = gen_bad_fields()
+
 DEST_ID = TEST_FIELDS[0]
 logging.debug('set DEST_ID to TEST_FIELDS[0], which is ' + TEST_FIELDS[0] + '.\n')
 
@@ -387,28 +395,34 @@ map_request = requests.get(map_url)
 with open('images/map.jpg', 'wb') as map_img:
     map_img.write(map_request.content)
 
-test()
-
-file_contents_string = '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
-file_contents_string += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
-file_contents_string += '</title>\n'
-file_contents_string += '<style>\na[href] {word-wrap:break-word;}\n'
-file_contents_string += 'p {margin-top: 0px; margin-bottom: 0.5em;}</style>\n'
-file_contents_string += '</head>\n<body>\n<h1>Most recent URLs:</h1>'
-file_contents_string += '\n<a href=' + metar_url + '>METAR XML</a></br>'
-file_contents_string += '\n<a href=' + taf_url + '>TAF XML</a></br>'
-file_contents_string += '\n<a href=' + field_url + '>FIELD XML</a></br>'
-file_contents_string += '\n<a href=' + wxurlmaker.make_metar_taf_url(TEST_FIELDS)
-file_contents_string += '>Normal TAFs & METARs</a></br>'
-file_contents_string += '\n<a href=images/map.jpg>Google Static Map</a></br>'
-file_contents_string += '\n'
-with open('.logs/test.log', newline='\n') as f:
-    for line in f:
-        file_contents_string += '<p>' + line + '</p>'
-file_contents_string += '</body>\n</html>'
-with open('index.html', 'w') as url_file:
-    url_file.write(file_contents_string)
-    
+   
 # reference https://stackoverflow.com/a/419185
 if __name__ == '__main__':
-    pass
+    test()
+    # TODO: this should be a pre-formatted html file that I can go into 
+    # and only change the content within certain tags.
+    # This first line (content-type) is required for CGI to work
+    html_str = 'Content-type: text/html\n\n'
+    html_str += '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+    html_str += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
+    html_str += '</title>\n'
+    # This short CSS snippet ensures that long URLs wrap instead of forcing
+    # the user to scroll to the right.
+    html_str += '<style>\na[href] {word-wrap:break-word;}\n'
+    html_str += 'p {margin-top: 0px; margin-bottom: 0.5em;}</style>\n'
+    html_str += '</head>\n<body>'
+    html_str += '\n<h1>Most recent URLs:</h1>'
+    html_str += '\n<a href=' + metar_url + '>METAR XML</a></br>'
+    html_str += '\n<a href=' + taf_url + '>TAF XML</a></br>'
+    html_str += '\n<a href=' + field_url + '>FIELD XML</a></br>'
+    html_str += '\n<a href=' + wxurlmaker.make_metar_taf_url(TEST_FIELDS)
+    html_str += '>Normal TAFs & METARs</a></br>'
+    html_str += '\n<a href=images/map.jpg>Google Static Map</a></br></br>'
+    html_str += '\n'
+    with open('.logs/test.log', newline='\n') as f:
+        for line in f:
+            html_str += '<p>' + line + '</p>'
+    html_str += '</body>\n</html>'
+    with open('index.html', 'w') as url_file:
+        url_file.write(html_str)
+    print(html_str)
