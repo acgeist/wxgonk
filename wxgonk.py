@@ -30,11 +30,17 @@ import urllib.request
 import webbrowser
 from typing import List
 
-# reference http://www.diveintopython3.net/your-first-python-program.html
 try:
     from lxml import etree
 except ImportError:
     import xml.etree.ElementTree as etree
+
+# TODO: This should perhaps be in a "main.py" file
+logging.basicConfig( \
+        level=logging.DEBUG, \
+        filename = '.logs/test.log', \
+        filemode='w', \
+        format='\n%(asctime)s - %(filename)s: line %(lineno)s, %(funcName)s: %(message)s')
 
 FILING_MINS = {'vis': 1.5, 'ceiling': 500}
 ALT_REQ = {'vis': 3.0, 'ceiling': 2000}
@@ -42,15 +48,7 @@ ALT_MINS = {'vis': 2.0, 'ceiling': 1000}
 NO_CEIL_VAL = 99999
 COUNTRY_DICT = countries.make_country_dict()
 TEST_FIELDS = []
-
-#logging.basicConfig(level=logging.DEBUG, filename = '.logs/test.log', \
-        #filemode='w', format='\n%(asctime)s - %(levelname)s - %(message)s')
-# TODO: This should perhaps be in a "main.py" file
-logging.basicConfig( \
-        level=logging.DEBUG, \
-        filename = '.logs/test.log', \
-        filemode='w', \
-        format='\n%(filename)s - line %(lineno)s, %(funcName)s: %(message)s')
+USING_CGI = usingcgi.called_from_cgi()
 
 class InvalidFunctionInput(Exception):
     pass
@@ -73,14 +71,11 @@ def can_file_metar(metar_node, field:str) -> bool:
     '''Return filing legality based on current conditions'''
     vis_at_dest = float(metar_node.findall('.//*[station_id="' + DEST_ID 
         + '"]/visibility_statute_mi')[0].text)
-    logging.debug('In function "can_file_metar" the visibility at ' + DEST_ID + ' is ' 
-            + '{:.1f}'.format(vis_at_dest) + 'sm, which is ')
-    if vis_at_dest >= FILING_MINS['vis']:
-        logging.debug('greater than or equal to ')
-    else:
-        logging.debug('less than ')
-    # Reference: https://mkaz.blog/code/python-string-format-cookbook/
-    logging.debug('FILING_MINS["vis"] (' + '{:.1f}'.format(FILING_MINS['vis']) + 'sm)')
+    debug_str = 'In function "can_file_metar" the visibility at ' + DEST_ID + ' is ' 
+    debug_str += '{:.1f}'.format(vis_at_dest) + 'sm, which is '
+    debug_str += '>=' if vis_at_dest >= FILING_MINS['vis'] else '<'
+    debug_str += ' FILING_MINS["vis"] (' + '{:.1f}'.format(FILING_MINS['vis']) + 'sm)'
+    logging.debug(debug_str)
     return vis_at_dest > FILING_MINS['vis'] 
 
 def has_ceiling(node) -> bool:
@@ -107,21 +102,16 @@ def req_alt(node) -> bool:
     '''Return whether or not an alternate is required'''
     vis_at_dest = float(node.findall('.//*[station_id="' + DEST_ID 
         + '"]/visibility_statute_mi')[0].text)
-    logging.debug('In function "req_alt" the visibility at ' + DEST_ID + ' is ' 
-            + '{:.1f}'.format(vis_at_dest) + 'sm, which is ')
-    if vis_at_dest >= ALT_REQ['vis'] :
-        logging.debug('greater than or equal to ')
-    else:
-        logging.debug('less than ')
-    logging.debug('ALT_REQ["vis"] (' + '{:.1f}'.format(ALT_REQ['vis']) + 'sm)')
     ceil_at_dest = get_ceiling(node)
-    logging.debug('In function "req_alt" the ceiling at ' + DEST_ID + ' is '
-            + '{:.0f}'.format(ceil_at_dest) + 'ft agl, which is ')
-    if ceil_at_dest >= ALT_REQ['ceiling']:
-        logging.debug('greater than or equal to ')
-    else:
-        logging.debug('less than ')
-    logging.debug('ALT_REQ["ceiling"] (' + '{:.0f}'.format(ALT_REQ['ceiling']) + 'ft)')
+    debug_str = '\nIn function "req_alt" the visibility at ' + DEST_ID + ' is '
+    debug_str += '{:.1f}'.format(vis_at_dest) + 'sm, which is '
+    debug_str += '>=' if vis_at_dest >= ALT_REQ['vis'] else '<'
+    debug_str += ' ALT_REQ["vis"] (' + '{:.1f}'.format(ALT_REQ['vis']) + 'sm)'
+    debug_str += '\nIn function "req_alt" the ceiling at ' + DEST_ID + ' is '
+    debug_str += '{:.0f}'.format(ceil_at_dest) + 'ft agl, which is '
+    debug_str += '>=' if ceil_at_dest >= ALT_REQ['ceiling'] else '<'
+    debug_str += ' ALT_REQ["ceiling"] (' + '{:.0f}'.format(ALT_REQ['ceiling']) + 'ft)'
+    logging.debug(debug_str)
     return vis_at_dest < ALT_REQ['vis'] or ceil_at_dest < ALT_REQ['ceiling']
 
 def valid_alt(node, field:str) -> bool:
@@ -208,8 +198,6 @@ def make_coord_list():
             field_list.insert(0, temp_node)
         else:
             field_list.append(temp_node)
-    # Move homestation to front of list to ensure it's at index 0
-    # field_list.insert(0, field_list.pop(field_list.index(
     return field_list
         
 def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
@@ -301,25 +289,20 @@ def test():
     for field in field_root.findall('.//Station'):
         if field.find('station_id').text == DEST_ID:
             continue
-        logging.debug(field.find('station_id').text + ' (' 
-                + field_root.findall('.//*.[station_id="' 
-                    + field.find('station_id').text + '"]/site')[0].text 
-                + ') is ' + str(round(latlongcalcs.dist_between_coords(
-                    home_lat, home_lon, field.find('latitude').text, 
-                    field.find('longitude').text))) + ' nautical miles from ' 
-                + DEST_ID + ' on a heading of '
-                + '{:03d}'.format(round(latlongcalcs.hdg_between_coords(
-                    home_lat, home_lon, field.find('latitude').text, 
-                    field.find('longitude').text)))
-                # Use the HTML escape if called from cgi, otherwise
-                # input unicode directly.  
-                + ('&deg' if usingcgi.called_from_cgi() else u'\N{DEGREE SIGN}')
-                + ' true.')
+        field_id = field.find('station_id').text 
+        logging.debug(field_id + ' (' + field_root.findall('.//*.[station_id="' 
+            + field_id + '"]/site')[0].text + ') is ' 
+            + str(round(latlongcalcs.dist_between_coords(home_lat, home_lon, 
+                field.find('latitude').text, field.find('longitude').text))) 
+            + ' nautical miles from ' + DEST_ID + ' on a heading of ' 
+            + '{:03d}'.format(round(latlongcalcs.hdg_between_coords(home_lat, 
+                home_lon, field.find('latitude').text, 
+                field.find('longitude').text))) 
+            # Use the HTML escape if called from cgi, 
+            # otherwise input unicode directly.  
+            + ('&deg' if USING_CGI else u'\N{DEGREE SIGN}') + ' true.')
         logging.debug('\nCurrent METAR/TAF at ' \
-                + field.find('station_id').text + ': \n' \
-                + get_raw_text(field.find('station_id').text, \
-                'both'))
-
+                + field_id + ': \n' + get_raw_text(field_id, 'both'))
 
     # https://docs.python.org/2/library.xml.etree.elementtree.html#elementtree-xpath
     metars = metar_root.findall('.//METAR')
@@ -327,12 +310,12 @@ def test():
     logging.debug('Can I legally file to ' + DEST_ID + '?')
     logging.debug(get_raw_text(DEST_ID, 'METAR'))
     logging.debug('can_file_metar: ' + str(can_file_metar(metar_root, DEST_ID)))
-    logging.debug('has_ceiling: ' + str(has_ceiling(metar_root.findall('.//*[station_id="' 
-        + DEST_ID + '"]/sky_condition'))))
-    logging.debug('ceiling: ' + str(get_ceiling(metar_root.findall('.//*[station_id="'
-        + DEST_ID + '"]/sky_condition'))))
-    logging.debug('visibility: ' + get_vis(metar_root.find('.//*[station_id="'
-        + DEST_ID + '"]')))
+    logging.debug('has_ceiling: ' + str(has_ceiling(metar_root.findall(
+        './/*[station_id="' + DEST_ID + '"]/sky_condition'))))
+    logging.debug('ceiling: ' + str(get_ceiling(metar_root.findall(
+        './/*[station_id="' + DEST_ID + '"]/sky_condition'))))
+    logging.debug('visibility: ' + get_vis(metar_root.find(
+        './/*[station_id="' + DEST_ID + '"]')))
     if can_file_metar(metar_root, DEST_ID):
         logging.debug('Do I require an alternate to file to ' + DEST_ID + '?')
         logging.debug('req_alt: ' + str(req_alt(metar_root)))
@@ -347,7 +330,6 @@ def test():
     date_obj = datetime.datetime.strptime(example_time_string, \
             '%Y-%m-%dT%H:%M:%SZ')
     logging.debug('date_obj = ' + str(date_obj))
-
 
 if len(sys.argv) > 1:
     """Process command-line arguments"""
@@ -370,8 +352,6 @@ if len(sys.argv) > 1:
                         + 'the pattern for a valid ICAO identifier.\n')
                 break
             else:
-                # TODO: make this less wonky - it current appends all the args
-                # as long as one of them was valid.
                 TEST_FIELDS.append(arg.upper())
     logging.debug('TEST_FIELDS set to ' + ', '.join(TEST_FIELDS) + '\n')
 else:
@@ -396,7 +376,6 @@ map_url = mapurlmaker.make_map_url(make_coord_list())
 map_request = requests.get(map_url)
 with open('images/map.jpg', 'wb') as map_img:
     map_img.write(map_request.content)
-
    
 # reference https://stackoverflow.com/a/419185
 if __name__ == '__main__':
@@ -405,24 +384,25 @@ if __name__ == '__main__':
     # and only change the content within certain tags.
     # This first line (content-type) is required for CGI to work
     html_str = ''
-    if usingcgi.called_from_cgi():
+    if USING_CGI:
         html_str += 'Content-type: text/html; charset=UTF-8\n\n'
-        html_str += '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
-        html_str += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
-        html_str += '</title>\n'
-        html_str += '</head>\n<body>'
-    html_str += '\n<h1>Most recent URLs:</h1>'
-    html_str += '\n<a href=' + metar_url + '>METAR XML</a></br>'
-    html_str += '\n<a href=' + taf_url + '>TAF XML</a></br>'
-    html_str += '\n<a href=' + field_url + '>FIELD XML</a></br>'
-    html_str += '\n<a href=' + wxurlmaker.make_metar_taf_url(TEST_FIELDS)
+        html_str += '<!DOCTYPE html><html lang="en"><head>'
+        html_str += '<meta charset="utf-8"><title>WxGonk Troubleshooting'
+        html_str += '</title><link rel="stylesheet" type="text/css"'
+        html_str += 'href="styles/wxgonk.css" />'
+        html_str += '</head><body>'
+    html_str += '<h1>Most recent URLs:</h1>'
+    html_str += '<a href=' + metar_url + '>METAR XML</a></br>'
+    html_str += '<a href=' + taf_url + '>TAF XML</a></br>'
+    html_str += '<a href=' + field_url + '>FIELD XML</a></br>'
+    html_str += '<a href=' + wxurlmaker.make_metar_taf_url(TEST_FIELDS)
     html_str += '>Normal TAFs & METARs</a></br>'
-    html_str += '\n<a href=images/map.jpg>Google Static Map</a></br></br>'
+    html_str += '<a href=images/map.jpg>Google Static Map</a></br></br>'
     html_str += '\n'
     with open('.logs/test.log', newline='\n') as f:
         for line in f:
             html_str += '<p>' + line + '</p>'
-    if usingcgi.called_from_cgi():
+    if USING_CGI:
         print(html_str)
     else:
         html_str += '</body>\n</html>'

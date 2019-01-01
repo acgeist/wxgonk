@@ -59,7 +59,6 @@ def hdg_between_coords(lat1, long1, lat2, long2) -> float:
     debug_str += '{:03.0f}'.format(return_val)
     debug_str += '&deg true.' if usingcgi.called_from_cgi() else \
             u'\N{DEGREE SIGN}' + ' true.' 
-    # debug_str += ' degrees true.'
     logging.debug(debug_str)
     return return_val
 

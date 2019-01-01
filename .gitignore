@@ -2,6 +2,10 @@
 *.py~
 *~
 
+# other
+images/map.jpg
+index.html
+
 # Google maps key
 google_map_key.txt
 

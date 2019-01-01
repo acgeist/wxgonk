@@ -12,7 +12,7 @@
 //TODO: add parameters to this function so command line arguments can be sent to 
 //wxgonk.py.
 function run_wxgonk(){
-    var url="wxgonk.py?cyhm+cyow+cyqg+cykf+cyyb";
+    var url="wxgonk.py";
     var xhr=null;
     if (window.XMLHttpRequest){
         xhr = new XMLHttpRequest();
@@ -30,7 +30,7 @@ function run_wxgonk(){
     }, 1000);
     xhr.onreadystatechange = function(){
         if (xhr.readyState == XMLHttpRequest.DONE){
-            let str = '<p class="test">Wxgonk ran in ' + timer + ' seconds.</p>';
+            let str = '<p class="pilsung-text">Wxgonk ran in ' + timer + ' seconds.</p>';
             str += xhr.responseText;
             document.getElementById("wxgonk-results").innerHTML = str;
         }

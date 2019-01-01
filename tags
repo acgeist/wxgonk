@@ -17,6 +17,8 @@ NO_CEIL_VAL	wxgonk.py	/^NO_CEIL_VAL = 99999$/;"	v
 TEST_FIELDS	wxgonk.py	/^        TEST_FIELDS = gen_bad_fields(sys.argv[1])$/;"	v
 TEST_FIELDS	wxgonk.py	/^    TEST_FIELDS = gen_bad_fields()$/;"	v
 TEST_FIELDS	wxgonk.py	/^TEST_FIELDS = []$/;"	v
+USING_CGI	wxgonk.py	/^USING_CGI = usingcgi.called_from_cgi()$/;"	v
+called_from_cgi	usingcgi.py	/^def called_from_cgi()->bool:$/;"	f
 can_file_metar	wxgonk.py	/^def can_file_metar(metar_node, field:str) -> bool:$/;"	f
 card_from_hdg	latlongcalcs.py	/^def card_from_hdg(hdg:float) -> str:$/;"	f
 country_dict	countries.py	/^country_dict = make_country_dict()$/;"	v
@@ -32,7 +34,7 @@ get_vis	wxgonk.py	/^def get_vis(node) -> str:$/;"	f
 has_ceiling	wxgonk.py	/^def has_ceiling(node) -> bool:$/;"	f
 hav	latlongcalcs.py	/^def hav(angle:float) -> float:$/;"	f
 hdg_between_coords	latlongcalcs.py	/^def hdg_between_coords(lat1, long1, lat2, long2) -> float:$/;"	f
-html_str	wxgonk.py	/^    html_str = 'Content-type: text\/html\\n\\n'$/;"	v
+html_str	wxgonk.py	/^    html_str = ''$/;"	v
 is_valid_country	countries.py	/^def is_valid_country(country:str) -> bool:$/;"	f
 makeUrlBadInput	test_wxgonk.py	/^class makeUrlBadInput(unittest.TestCase):$/;"	c
 make_adds_url	wxurlmaker.py	/^def make_adds_url($/;"	f
@@ -48,7 +50,7 @@ node_contains_field	wxgonk.py	/^def node_contains_field(node, field:str) -> bool
 print_node	wxgonk.py	/^def print_node(node, indent:int = 0):$/;"	f
 req_alt	wxgonk.py	/^def req_alt(node) -> bool:$/;"	f
 roots	wxgonk.py	/^roots = [taf_root, metar_root, field_root]$/;"	v
-run_wxgonk	links.html	/^function run_wxgonk(){$/;"	f
+run_wxgonk	scripts/wxgonk_cgi_caller.js	/^function run_wxgonk(){$/;"	f
 taf_root	wxgonk.py	/^taf_root = get_root(taf_url)$/;"	v
 taf_url	wxgonk.py	/^taf_url = wxurlmaker.make_adds_url('tafs', TEST_FIELDS)    $/;"	v
 test	wxgonk.py	/^def test():$/;"	f
@@ -59,3 +61,4 @@ test_known_values_hav	test_latlongcalcs.py	/^    def test_known_values_hav(self)
 test_known_values_hdg	test_latlongcalcs.py	/^    def test_known_values_hdg(self):$/;"	m	class:LatLongTestCase
 urls	wxgonk.py	/^urls = [taf_url, metar_url, field_url]$/;"	v
 valid_alt	wxgonk.py	/^def valid_alt(node, field:str) -> bool:$/;"	f
+xhr.onreadystatechange	scripts/wxgonk_cgi_caller.js	/^    }, 1000);$/;"	f
