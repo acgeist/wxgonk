@@ -17,11 +17,11 @@
 import countries
 import latlongcalcs
 import mapurlmaker
+import usingcgi
 import wxurlmaker
 
 import datetime
 import logging
-import os
 import random
 import re 
 import requests
@@ -283,11 +283,6 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
         bad_field_ids.append(metar.find('station_id').text)
     return bad_field_ids
 
-def called_from_cgi()->bool:
-    """Return true if called from cgi, false if called directly"""
-    # Reference https://stackoverflow.com/q/5077980
-    return 'REQUEST_METHOD' in os.environ
-
 def test():
     home_lat = float(field_root.findall('.//*.[station_id="' + DEST_ID 
             + '"]/latitude')[0].text) 
@@ -304,25 +299,26 @@ def test():
             results += ' ' + id.text
         logging.debug(results)
     for field in field_root.findall('.//Station'):
-        if not field.find('station_id').text == DEST_ID:
-            logging.debug(field.find('station_id').text + ' ('
-                    + field_root.findall('.//*.[station_id="' 
-                        + field.find('station_id').text
-                        + '"]/site')[0].text + ') is ' 
-                    + str(round(latlongcalcs.dist_between_coords(
-                        home_lat, home_lon,
-                        field.find('latitude').text, 
-                        field.find('longitude').text)))
-                    + ' nautical miles from ' + DEST_ID + ' on a heading of '
-                    + '{:03d}'.format(round(latlongcalcs.hdg_between_coords(
-                        home_lat, home_lon,
-                        field.find('latitude').text, 
-                        field.find('longitude').text)))
-                    + ' true.')
-            logging.debug('\nCurrent METAR/TAF at ' \
-                    + field.find('station_id').text + ': \n' \
-                    + get_raw_text(field.find('station_id').text, \
-                    'both'))
+        if field.find('station_id').text == DEST_ID:
+            continue
+        logging.debug(field.find('station_id').text + ' (' 
+                + field_root.findall('.//*.[station_id="' 
+                    + field.find('station_id').text + '"]/site')[0].text 
+                + ') is ' + str(round(latlongcalcs.dist_between_coords(
+                    home_lat, home_lon, field.find('latitude').text, 
+                    field.find('longitude').text))) + ' nautical miles from ' 
+                + DEST_ID + ' on a heading of '
+                + '{:03d}'.format(round(latlongcalcs.hdg_between_coords(
+                    home_lat, home_lon, field.find('latitude').text, 
+                    field.find('longitude').text)))
+                # Use the HTML escape if called from cgi, otherwise
+                # input unicode directly.  
+                + ('&deg' if usingcgi.called_from_cgi() else u'\N{DEGREE SIGN}')
+                + ' true.')
+        logging.debug('\nCurrent METAR/TAF at ' \
+                + field.find('station_id').text + ': \n' \
+                + get_raw_text(field.find('station_id').text, \
+                'both'))
 
 
     # https://docs.python.org/2/library.xml.etree.elementtree.html#elementtree-xpath
@@ -409,8 +405,8 @@ if __name__ == '__main__':
     # and only change the content within certain tags.
     # This first line (content-type) is required for CGI to work
     html_str = ''
-    if called_from_cgi():
-        html_str += 'Content-type: text/html\n\n'
+    if usingcgi.called_from_cgi():
+        html_str += 'Content-type: text/html; charset=UTF-8\n\n'
         html_str += '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
         html_str += '<meta charset="utf-8">\n<title>WxGonk Troubleshooting'
         html_str += '</title>\n'
@@ -426,7 +422,7 @@ if __name__ == '__main__':
     with open('.logs/test.log', newline='\n') as f:
         for line in f:
             html_str += '<p>' + line + '</p>'
-    if called_from_cgi():
+    if usingcgi.called_from_cgi():
         print(html_str)
     else:
         html_str += '</body>\n</html>'

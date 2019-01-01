@@ -12,7 +12,7 @@
 //TODO: add parameters to this function so command line arguments can be sent to 
 //wxgonk.py.
 function run_wxgonk(){
-    var url="wxgonk.py";
+    var url="wxgonk.py?cyhm+cyow+cyqg+cykf+cyyb";
     var xhr=null;
     if (window.XMLHttpRequest){
         xhr = new XMLHttpRequest();

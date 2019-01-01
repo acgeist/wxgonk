@@ -1,11 +1,13 @@
 #!/usr/bin/python3
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 # latlongcalcs.py
 """Do stuff with coordinates.
 
 Still learning about docstrings, lookup 
 https://www.python.org/dev/peps/pep-0257/
 """
+
+import usingcgi
 
 import logging
 import math
@@ -54,7 +56,10 @@ def hdg_between_coords(lat1, long1, lat2, long2) -> float:
             math.sin(lat1) * math.cos(lat2) * math.cos(d_long)
     return_val = math.degrees(math.atan2(x, y))
     return_val %= 360
-    debug_str += '{:.1f}'.format(return_val) + '° true.'
+    debug_str += '{:03.0f}'.format(return_val)
+    debug_str += '&deg true.' if usingcgi.called_from_cgi() else \
+            u'\N{DEGREE SIGN}' + ' true.' 
+    # debug_str += ' degrees true.'
     logging.debug(debug_str)
     return return_val
 
