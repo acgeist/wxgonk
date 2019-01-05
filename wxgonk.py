@@ -20,9 +20,9 @@ import mapurlmaker
 import usingcgi
 import wxurlmaker
 
-import datetime
+from datetime import datetime
 import logging
-import random
+from random import choice
 import re 
 import requests
 import sys
@@ -49,6 +49,7 @@ NO_CEIL_VAL = 99999
 COUNTRY_DICT = countries.make_country_dict()
 TEST_FIELDS = []
 USING_CGI = usingcgi.called_from_cgi()
+NUM_REQS = 0
 
 class InvalidFunctionInput(Exception):
     pass
@@ -57,6 +58,8 @@ class InvalidDataType(Exception):
 
 def get_root(url:str):
     '''Return the root node of an xml file'''
+    global NUM_REQS
+    NUM_REQS += 1
     return etree.fromstring(urllib.request.urlopen(url).read())
     
 def node_contains_field(node, field:str) -> bool:
@@ -171,14 +174,20 @@ def get_raw_text(field:str, metar_or_taf:str) -> str:
         result_str = get_raw_text(field, 'METAR') + '\n' + result_str
     return result_str
 
-def print_node(node, indent:int = 0):
+def time_str_to_obj(input_time:str) -> datetime:
+    return datetime.strptime(input_time, '%Y-%m-%dT%H:%M:%SZ')
+
+def node_to_str(node, indent:int = 0):
     '''Print an XML tree'''
     # TODO: include attributes
-    print(indent * '\t', end='')
-    print(node.tag if node.text == None else node.tag + ': ' + node.text)
+    output = ''
+    output += indent * '\t'
+    output += node.tag if node.text == None else node.tag + ': ' + node.text
+    output += '\n'
     if len(node.findall('*')) > 0:
         for child in node:
-            print_node(child, indent + 1)
+            output += node_to_str(child, indent + 1)
+    return output
 
 def make_coord_list():
     '''Make a list of all field locations. Used to generate map URL.'''
@@ -213,7 +222,7 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
     countries_tried_str = ''
     while not is_valid_choice:
         num_countries_tried += 1
-        country_choice = random.choice(country_choices) if \
+        country_choice = choice(country_choices) if \
                 not countries.is_valid_country(country) else \
                 country
         countries_tried_str += country_choice + ' '
@@ -236,7 +245,7 @@ def gen_bad_fields(country:str = '00', num_results:int = 10) -> List[str]:
         rand_field_list = []
         # Based on trial/error, http requests start to break with >1000 fields
         for i in range(0, min(1000, len(bad_fields_list))):
-            new_addition = random.choice(bad_fields_list)
+            new_addition = choice(bad_fields_list)
             if not new_addition in rand_field_list:
                 rand_field_list.append(new_addition)
         bad_metar_url = wxurlmaker.make_adds_url('METAR', \
@@ -321,13 +330,26 @@ def test():
         logging.debug('req_alt: ' + str(req_alt(metar_root)))
 
     tafs = taf_root.findall('.//TAF')
+    for taf in tafs:
+        forecast_list = taf.findall('.//forecast')
+        taf_intro = taf.find('station_id').text + ': '
+        taf_intro += str(len(forecast_list)) + ' lines.'
+        logging.debug(taf_intro)
+        for forecast in forecast_list:
+            taf_intro += '\nFrom ' 
+            taf_intro += time_str_to_obj(forecast.find('fcst_time_from').text).strftime("%d%H%z")
+            taf_intro += 'z to ' 
+            taf_intro += time_str_to_obj(forecast.find('fcst_time_to').text).strftime("%d%H%z")
+            taf_intro += 'z the visibility is forecast to be '
+            taf_intro += forecast.find('visibility_statute_mi').text + 'sm.'
+        logging.debug(taf_intro)
 
     # Times follow format YYYY-mm-ddTHH:MM:SSZ
     metar_times_list = metar_root.findall('.//METAR/observation_time')
-    example_time_string = random.choice(metar_times_list).text
+    example_time_string = choice(metar_times_list).text
     logging.debug('example_time_string = ' + example_time_string)
     #TODO: do time zone stuff
-    date_obj = datetime.datetime.strptime(example_time_string, \
+    date_obj = datetime.strptime(example_time_string, \
             '%Y-%m-%dT%H:%M:%SZ')
     logging.debug('date_obj = ' + str(date_obj))
 
@@ -338,8 +360,7 @@ if len(sys.argv) > 1:
     # If there's only one argument and it is a valid two-letter country 
     # identifier, search that country for bad weather.
     if re.match(r'\b[a-zA-Z]{2}\b', sys.argv[1]) and \
-            len(sys.argv) == 2 and \
-            countries.is_valid_country(sys.argv[1]):
+            len(sys.argv) == 2 and countries.is_valid_country(sys.argv[1]):
         TEST_FIELDS = gen_bad_fields(sys.argv[1])
     else:
         for arg in sys.argv[1:]:
@@ -348,7 +369,8 @@ if len(sys.argv) > 1:
             # two-letter, two-number ids likely reference private fields or 
             # fields smaller than we'll be using for military flying.
             if re.match(r'\b[a-zA-Z]{4}\b', arg) == None:
-                logging.warning('The command line argument "' + arg + '" did not match '
+                logging.warning('The command line argument "' + arg 
+                        + '" did not match ' 
                         + 'the pattern for a valid ICAO identifier.\n')
                 break
             else:
@@ -359,7 +381,7 @@ else:
     TEST_FIELDS = gen_bad_fields()
 
 DEST_ID = TEST_FIELDS[0]
-logging.debug('set DEST_ID to TEST_FIELDS[0], which is ' + TEST_FIELDS[0] + '.\n')
+logging.debug('set DEST_ID = TEST_FIELDS[0], which is ' + TEST_FIELDS[0] + '.\n')
 
 logging.debug('making ADDS URLs...\n')
 taf_url = wxurlmaker.make_adds_url('tafs', TEST_FIELDS)    
@@ -380,17 +402,13 @@ with open('images/map.jpg', 'wb') as map_img:
 # reference https://stackoverflow.com/a/419185
 if __name__ == '__main__':
     test()
-    # TODO: this should be a pre-formatted html file that I can go into 
-    # and only change the content within certain tags.
-    # This first line (content-type) is required for CGI to work
     html_str = ''
     if USING_CGI:
         html_str += 'Content-type: text/html; charset=UTF-8\n\n'
         html_str += '<!DOCTYPE html><html lang="en"><head>'
         html_str += '<meta charset="utf-8"><title>WxGonk Troubleshooting'
         html_str += '</title><link rel="stylesheet" type="text/css"'
-        html_str += 'href="styles/wxgonk.css" />'
-        html_str += '</head><body>'
+        html_str += 'href="styles/wxgonk.css" /></head><body>'
     html_str += '<h1>Most recent URLs:</h1>'
     html_str += '<a href=' + metar_url + '>METAR XML</a></br>'
     html_str += '<a href=' + taf_url + '>TAF XML</a></br>'
@@ -398,13 +416,13 @@ if __name__ == '__main__':
     html_str += '<a href=' + wxurlmaker.make_metar_taf_url(TEST_FIELDS)
     html_str += '>Normal TAFs & METARs</a></br>'
     html_str += '<a href=images/map.jpg>Google Static Map</a></br></br>'
-    html_str += '\n'
+    logging.debug(str(NUM_REQS) + ' requests made to the ADDS text data server.')
     with open('.logs/test.log', newline='\n') as f:
         for line in f:
             html_str += '<p>' + line + '</p>'
     if USING_CGI:
         print(html_str)
     else:
-        html_str += '</body>\n</html>'
+        html_str += '</body></html>'
         with open('index.html', 'w') as url_file:
             url_file.write(html_str)
